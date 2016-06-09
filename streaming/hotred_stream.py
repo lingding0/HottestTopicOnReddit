@@ -14,10 +14,10 @@ import time
 import json
 
 # Kafka streaming connection parameters
-kafka_dns  = "ec2-52-39-229-181.us-west-2.compute.amazonaws.com"
+kafka_dns  = "ec2-52-40-27-174.us-west-2.compute.amazonaws.com"
 kafka_port = "2181"
 
-sc = SparkContext("spark://ip-172-31-0-103:7077", appName="StreamingKafkaLowFrequency")
+sc = SparkContext("spark://ip-172-31-0-104:7077", appName="StreamingKafka")
 # streaming batch interval of 5 sec first, and reduce later to 1 sec or lower
 ssc = StreamingContext(sc, 5)
 #ssc = StreamingContext.getOrCreate(checkpoint,
@@ -65,11 +65,11 @@ def findTopTopic(rdd):
 
 # direct stream is matching with Kafka 18 partitions - one on one match to make sure the comments
 # always follow its topic earlier in the stream
-nDStreams = 18; # 3 worker * 6 cores 
+nDStreams = 54; # 3 worker * 6 cores * 3 times overloading on thread
 kafkaStreamHf = KafkaUtils.createDirectStream(ssc,  # stream context
-                                              kafka_dns + ":" + kafka_port, # kafka port
+                                              kafka_dns + ":" + kafka_port, # kafka zookeeper port
                                               "hotred_streaming",  # consumer group
-                                              {"reddit_stream": nDStreams}) # topic, with 18 partition
+                                              {"reddit": nDStreams}) # topic, with 18 partition
                                                                    # 3 workers, each has 6 cores
 
 power_rt_hf = kafkaStreamHf.map(getEdges)
