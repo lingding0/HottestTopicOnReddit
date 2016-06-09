@@ -6,6 +6,7 @@ from pyspark.streaming import StreamingContext
 from pyspark.streaming.kafka import KafkaUtils, OffsetRange
 
 from cassandra.cluster import Cluster
+from random import randint
 
 import time
 import json
@@ -16,7 +17,7 @@ kafka_port = "2181"
 
 sc = SparkContext("spark://ip-172-31-0-104:7077", appName="StreamingKafka")
 # streaming batch interval of 5 sec first, and reduce later to 1 sec or lower
-ssc = StreamingContext(sc, 5)
+ssc = StreamingContext(sc, 10)
 #ssc = StreamingContext.getOrCreate(checkpoint,
 #                                   lambda: createContext(host, int(port), output))
 
@@ -32,12 +33,11 @@ st_news = session.prepare("INSERT INTO topnews (subreddit_id, created_utc, link_
 
 
 def process(rdd):
-    cnt = 0
     for comment in rdd.collect():
-        session.execute(st_news, (comment[0] + str(cnt), comment[1], comment[2], comment[3], comment[4], comment[5], ))
-	print ("pushing comment into cassandra: " + comment[0] + str(cnt))
+        primKey = comment[0] + str(randint(0,19))
+        session.execute(st_news, (primKey, comment[1], comment[2], comment[3], comment[4], comment[5], ))
+	#print ("pushing comment into cassandra: " + comment[0] + str(cnt))
         #session.execute(st_news, (data["created_utc"] + str(cnt), data["subreddit_id"], data["link_id"], data["parent_id"], data["name"], data["body"], ))
-        cnt += 1
 
 #def aggToCassandra(top10):
 #    if top10:
@@ -49,8 +49,7 @@ def process(rdd):
 #        cascluster.shutdown()
 
 def getEdges(comment):
-    type(comment)
-    print ("comment = " + comment[1])
+    # comment[0]: kafka offset; comment[1]: payload string
     data = json.loads(comment[1])
     subreddit_id = data['subreddit_id']
     link_id      = data['link_id']
