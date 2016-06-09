@@ -28,7 +28,7 @@ ssc = StreamingContext(sc, 5)
 # connect to cassandra
 cluster = Cluster(['ec2-52-41-2-110.us-west-2.compute.amazonaws.com', 'ec2-52-32-133-95.us-west-2.compute.amazonaws.com', 'ec2-52-34-129-5.us-west-2.compute.amazonaws.com'])
 session = cluster.connect("hotred")
-st_news = session.prepare("INSERT INTO topnews (created_utc, subreddit_id, link_id, parent_id, name, body) VALUES (?,?,?,?,?,?) USING TTL 7776000") #let news live for 90 days in the database
+st_news = session.prepare("INSERT INTO topnews (subreddit_id, created_utc, link_id, parent_id, name, body) VALUES (?,?,?,?,?,?) USING TTL 7776000") #let news live for 90 days in the database
 
 
 def process(rdd):
@@ -49,26 +49,22 @@ def process(rdd):
 #        cascluster.shutdown()
 
 def getEdges(comment):
-    data = json.loads(comment)
+    type(comment)
+    print ("comment = " + comment[1])
+    data = json.loads(comment[1])
     subreddit_id = data['subreddit_id']
     link_id      = data['link_id']
     parent_id    = data['parent_id']
     body         = data['body']
     created_utc  = data['created_utc']
     name         = data['name']
-    return (created_utc, subreddit_id, link_id, parent_id, name, body)
+    return (subreddit_id, created_utc, link_id, parent_id, name, body)
 
 def findTopTopic(rdd):
     return rdd
 
-# direct stream is matching with Kafka 18 partitions - one on one match to make sure the comments
-# always follow its topic earlier in the stream
-nDStreams = 54; # 3 worker * 6 cores * 3 times overloading on thread
-
 # Kafka brokers
 kafkaParams = {"metadata.broker.list": "ec2-52-40-27-174.us-west-2.compute.amazonaws.com:9092,ec2-52-37-195-19.us-west-2.compute.amazonaws.com:9092,ec2-52-39-242-87.us-west-2.compute.amazonaws.com:9092"}
-directKafkaStream = KafkaUtils.createDirectStream(ssc, [topic],kafkaParams, 
-fromOffsets=fromOffset)
 kafkaStream = KafkaUtils.createDirectStream(ssc,  # stream context
                                               ["reddit"], # topics
                                               kafkaParams) # broker list, auto connect to each partition

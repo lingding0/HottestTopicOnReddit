@@ -2,6 +2,6 @@ CREATE KEYSPACE hotred WITH replication = {'class': 'SimpleStrategy', 'replicati
 USE hotred;
 
 -- top reddit topic table
-CREATE TABLE topnews(created_utc long, subreddit_id text, link_id text, parent_id text, name text, body text PRIMARY KEY (created_utc, subreddit_id));
+CREATE TABLE topnews(subreddit_id text, created_utc text, link_id text, parent_id text, name text, body text, PRIMARY KEY (subreddit_id, created_utc));
 
 
