@@ -1,14 +1,11 @@
 from __future__ import print_function
 
 import sys
-
 from pyspark import SparkContext
 from pyspark.streaming import StreamingContext
-from pyspark.streaming.kafka import KafkaUtils
+from pyspark.streaming.kafka import KafkaUtils, OffsetRange
 
 from cassandra.cluster import Cluster
-
-from tdigest import TDigest
 
 import time
 import json
@@ -27,28 +24,29 @@ ssc = StreamingContext(sc, 5)
 #def ts2date(curTime):
 #    return time.strftime("%Y-%m-%d", time.localtime(int(curTime)))
 
+
+# connect to cassandra
+cluster = Cluster(['ec2-52-41-2-110.us-west-2.compute.amazonaws.com', 'ec2-52-32-133-95.us-west-2.compute.amazonaws.com', 'ec2-52-34-129-5.us-west-2.compute.amazonaws.com'])
+session = cluster.connect("hotred")
+st_news = session.prepare("INSERT INTO topnews (created_utc, subreddit_id, link_id, parent_id, name, body) VALUES (?,?,?,?,?,?) USING TTL 7776000") #let news live for 90 days in the database
+
+
 def process(rdd):
-    sqlContext = getSqlContextInstance(rdd.context)
-    rdd_date = rdd.map(lambda w: Row(houseId=str(json.loads(w)["houseId"]), date=str(ts2date(json.loads(w)['timestamp'])), zip=str(json.loads(w)["zip"]), power=str(float(json.loads(w)["readings"][0]['power']) + float(json.loads(w)["readings"][1]['power']))))
-    rdd_aggr = rdd_date.map(lambda x: ((x.houseId, x.date, x.zip), x.power)).reduceByKey(lambda x, y: float(x)+float(y))
-    comment = rdd_aggr.map(lambda x: {
-        "houseId": x[0][0],
-        "date": x[0][1],
-        "zip": x[0][2],
-        "power": x[1]
-    })
-    comment_df = sqlContext.createDataFrame(comment)
-    comment_df.foreachPartition(aggToCassandra)
+    cnt = 0
+    for comment in rdd.collect():
+        session.execute(st_news, (comment[0] + str(cnt), comment[1], comment[2], comment[3], comment[4], comment[5], ))
+	print ("pushing comment into cassandra: " + comment[0] + str(cnt))
+        #session.execute(st_news, (data["created_utc"] + str(cnt), data["subreddit_id"], data["link_id"], data["parent_id"], data["name"], data["body"], ))
+        cnt += 1
 
-
-def aggToCassandra(top10):
-    if top10:
-        cascluster = Cluster(['52.89.47.199', '52.89.59.188', '52.88.228.95', '52.35.74.206'])
-        casSession = cascluster.connect('hotestRedditTopic')
-        for rec in top10:
-            casSession.execute('INSERT INTO recommend (subreddit_id, created_utc, name, body) VALUES (%s, %s, %s, %s)', (str(rec[1]), str(rec[0]), str(rec[5]), str(rec[6])))
-        casSession.shutdown()
-        cascluster.shutdown()
+#def aggToCassandra(top10):
+#    if top10:
+#        cascluster = Cluster(['52.89.47.199', '52.89.59.188', '52.88.228.95', '52.35.74.206'])
+#        casSession = cascluster.connect('hotestRedditTopic')
+#        for rec in top10:
+#            casSession.execute('INSERT INTO recommend (subreddit_id, created_utc, name, body) VALUES (%s, %s, %s, %s)', (str(rec[1]), str(rec[0]), str(rec[5]), str(rec[6])))
+#        casSession.shutdown()
+#        cascluster.shutdown()
 
 def getEdges(comment):
     data = json.loads(comment)
@@ -58,7 +56,7 @@ def getEdges(comment):
     body         = data['body']
     created_utc  = data['created_utc']
     name         = data['name']
-    return (created_utc, subreddit_id, link_id, parent_id, body, name, body)
+    return (created_utc, subreddit_id, link_id, parent_id, name, body)
 
 def findTopTopic(rdd):
     return rdd
@@ -66,14 +64,17 @@ def findTopTopic(rdd):
 # direct stream is matching with Kafka 18 partitions - one on one match to make sure the comments
 # always follow its topic earlier in the stream
 nDStreams = 54; # 3 worker * 6 cores * 3 times overloading on thread
-kafkaStreamHf = KafkaUtils.createDirectStream(ssc,  # stream context
-                                              kafka_dns + ":" + kafka_port, # kafka zookeeper port
-                                              "hotred_streaming",  # consumer group
-                                              {"reddit": nDStreams}) # topic, with 18 partition
-                                                                   # 3 workers, each has 6 cores
 
-power_rt_hf = kafkaStreamHf.map(getEdges)
-power_rt_hf.foreachRDD(process)
+# Kafka brokers
+kafkaParams = {"metadata.broker.list": "ec2-52-40-27-174.us-west-2.compute.amazonaws.com:9092,ec2-52-37-195-19.us-west-2.compute.amazonaws.com:9092,ec2-52-39-242-87.us-west-2.compute.amazonaws.com:9092"}
+directKafkaStream = KafkaUtils.createDirectStream(ssc, [topic],kafkaParams, 
+fromOffsets=fromOffset)
+kafkaStream = KafkaUtils.createDirectStream(ssc,  # stream context
+                                              ["reddit"], # topics
+                                              kafkaParams) # broker list, auto connect to each partition
+
+graph = kafkaStream.map(getEdges)
+graph.foreachRDD(process)
 
 ssc.start()
 ssc.awaitTermination()
