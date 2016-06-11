@@ -56,7 +56,7 @@ def getEdges(comment):
     parent_id    = data['parent_id']
     body         = data['body']
     created_utc  = data['created_utc']
-    name         = data['name']
+    name         = data['url']
     return (subreddit_id, created_utc, link_id, parent_id, name, body)
 
 def findTopTopic(rdd):
