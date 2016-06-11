@@ -1,32 +1,22 @@
 import sys
-#from kafka.client import KafkaClient
 from kafka.client import SimpleClient
-#from kafka import KafkaProducer
 from kafka.producer import KeyedProducer
 from ConfigParser import SafeConfigParser
-#from CommentReader import CommentReader
 from kafka import HashedPartitioner
 
 from time import sleep
 import json
 import pprint
+from threading import Thread
 
-nHours = 0.01
-nSecond = int(nHours * 60 * 60) # 12 hours of data
-
-# generator based line by line processing in python
-#import ijson
-#filename = "md_traffic.json"
-#with open(filename, 'r') as f:
-#    objects = ijson.items(f, 'meta.view.columns.item')
-#    columns = list(objects)
 
 class KafkaProducer(object):
     def __init__(self, addr, conf_file):
         self.parser = SafeConfigParser()
         self.parser.read(conf_file)
-        install_dir = self.parser.get('hotred_tool', 'INSTALL_DIR')
-        zipdb_file  = self.parser.get('hotred_tool', 'ZIP_DB_FILE') 
+        self.install_dir = self.parser.get('hotred_tool', 'INSTALL_DIR')
+        self.zipdb_file  = self.parser.get('hotred_tool', 'ZIP_DB_FILE') 
+        self.nHours      = float(self.parser.get('hotred_tool', 'DATA_LAST'))
 
         #self.client = KafkaClient(addr)
         self.client = SimpleClient(addr)
@@ -34,30 +24,55 @@ class KafkaProducer(object):
         # HashedPartitioner is default
         self.producer = KeyedProducer(self.client, partitioner=HashedPartitioner)
 
-    def produce_msgs(self):
+        self.timeCntInSec = long(0)  #global variable, to sync produer thread
+
+    def produce_msgs(self, threadname):
         msg_cnt = 0
+        secondCnt = long(0)
+        nSecond = long(self.nHours * 60 * 60) # 12 hours of data
         pp = pprint.PrettyPrinter(indent=4)
-        with open(install_dir + '/' + zipdp_file) as data_file:
+
+        with open(self.install_dir + '/' + self.zipdb_file) as data_file:
             for line in data_file:
                 data = json.loads(line)
-                pp.pprint(data)
-                subreddit_id = data['subreddit_id']
-                msg = line
+                #pp.pprint(data)
+                for i in range(len(data)):
+                    subreddit_id = bytes(data[i]['subreddit_id'])
+                    msg = json.dumps(data[i])
 
-                if msg_cnt % 500 == 0:
-                    print "Sent " + str(msg_cnt) + " messages to Kafka"
+                    if msg_cnt % 5000 == 0:
+                        print "Sent " + str(msg_cnt) + " messages to Kafka"
 
-                # use subreddit ID as partition key for ensure the same topic along with
-                # its comments flow into the same channel and enter the same spark rdd
-                #self.producer.send('reddit', subreddit_id, msg)
-                msg_cnt += 1
-                print "Sent Total " + str(msg_cnt) + " messages to Kafka"
-                if (msg_cnt == totalSeconds):
+                    # use subreddit ID as partition key for ensure the same topic along with
+                    # its comments flow into the same channel and enter the same spark rdd
+                    self.producer.send('reddit', subreddit_id, msg)
+                    pp.pprint(msg)
+                    msg_cnt += 1
+                    #print "Sent Total " + str(msg_cnt) + " messages to Kafka"
+                
+                secondCnt += 1
+                if (secondCnt % nSecond == 0):
                     data_file.seek(0, 0) # rewind and start from beginning
-                sleep(1) # Time in seconds.
+                while (secondCnt >= self.timeCntInSec):
+                    sleep(0.05) # look at other thread clock signal
 
         print "Sent Total " + str(msg_cnt) + " messages to Kafka"
 	data_file.close()
+
+    def syncClock(self, threadname):
+        #global self.timeCntInSec
+        while True:
+            self.timeCntInSec += 1
+            print ("clock sig cnt: " + str(self.timeCntInSec))
+            sleep(1)
+
+    def syncProduceMsgs(self):
+        clockTic     = Thread( target=self.syncClock, args=("syncedClockTic", ) )
+        syncProducer = Thread( target=self.produce_msgs, args=("producerFollowsClock", ) )
+        clockTic.start()
+        syncProducer.start()
+        clockTic.join()
+        syncProducer.join() 
 
 #    def produce_msgs(self):
 #        msg_cnt = 0
@@ -81,4 +96,4 @@ if __name__ == "__main__":
     conf_file = str(args[1])
     ip_addr = str(args[2])
     prod = KafkaProducer(ip_addr, conf_file)
-    prod.produce_msgs() 
+    prod.syncProduceMsgs() 
