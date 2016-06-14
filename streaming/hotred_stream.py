@@ -51,13 +51,14 @@ def process(rdd):
 def getEdges(comment):
     # comment[0]: kafka offset; comment[1]: payload string
     data = json.loads(comment[1])
-    subreddit_id = data['subreddit_id']
-    link_id      = data['link_id']
-    parent_id    = data['parent_id']
-    body         = data['body']
-    created_utc  = data['created_utc']
-    name         = data['url']
-    return (subreddit_id, created_utc, link_id, parent_id, name, body)
+    #subreddit_id = data['subreddit_id']
+    #link_id      = data['link_id']
+    #parent_id    = data['parent_id']
+    #body         = data['body']
+    #created_utc  = data['created_utc']
+    user         = data['author']
+    url          = data['url']
+    return (user, url)
 
 def findTopTopic(rdd):
     return rdd
@@ -68,7 +69,10 @@ kafkaStream = KafkaUtils.createDirectStream(ssc,  # stream context
                                               ["reddit"], # topics
                                               kafkaParams) # broker list, auto connect to each partition
 
-graph = kafkaStream.map(getEdges)
+edgeTable = kafkaStream.map(getEdges)
+graph = edgeTable.join(edgeTable)\
+                 .map(lambda x: x[1])\
+                 .filter(lambda x: x[0] != x[1])
 graph.foreachRDD(process)
 
 ssc.start()
