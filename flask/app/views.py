@@ -9,6 +9,26 @@ session = cluster.connect("hotred")
 
 session.default_fetch_size = None #turn off paging to allow IN () ORDER BY queries, since only a few records are SELECTed anyway
 
+def getPostOfUser(user):
+    allUserPosts = session.execute("SELECT * FROM user_post_table WHERE user=%s", parameters=[user])
+    return allUserPosts
+
+def getStrongestFellowUser(user):
+    strongest = session.execute("SELECT * FROM user_graph WHERE user1=%s LIMIT 1", parameters=[user])
+    return strongest
+
+def getRecommondationPost(user):
+    fellowUser = getStrongestFellowUser(user)
+    fellowPost = getPostOfUser(fellowUser[0].user2)
+    userPost   = getPostOfUser(user)
+    
+    userPostLinks   = [row.url for row in userPost]
+    fellowPostLinks = [row.url for row in fellowPost]
+
+    recommendation = list(set(fellowPostLinks) - set(userPostLinks))
+    return recommendation
+
+
 def _get_data(time):
     #pull latest trades, latest news, and portfolio from database for the user
     #check which database to query
@@ -34,6 +54,11 @@ def index():
 @app.route('/getTopic/<time>')
 def get_topic(time):
     return _get_json_data(time)
+
+@app.route('/rec/<user>')
+def get_rec(user):
+    return getRecommondationPost(user)
+
 
 #@app.route('/topic')
 #def get_topic():
