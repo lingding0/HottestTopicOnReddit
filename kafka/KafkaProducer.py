@@ -35,9 +35,8 @@ class KafkaProducer(object):
         with open(self.install_dir + '/' + self.zipdb_file) as data_file:
             for line in data_file:
                 data = json.loads(line)
-                #pp.pprint(data)
                 for i in range(len(data)):
-                    subreddit_id = bytes(data[i]['subreddit_id'])
+                    user = bytes(data[i]['author'])
                     msg = json.dumps(data[i])
 
                     if msg_cnt % 5000 == 0:
@@ -45,8 +44,8 @@ class KafkaProducer(object):
 
                     # use subreddit ID as partition key for ensure the same topic along with
                     # its comments flow into the same channel and enter the same spark rdd
-                    self.producer.send('reddit', subreddit_id, msg)
-                    pp.pprint(msg)
+                    self.producer.send('reddit', user, msg)
+                    #pp.pprint(msg)
                     msg_cnt += 1
                     #print "Sent Total " + str(msg_cnt) + " messages to Kafka"
                 
@@ -63,7 +62,8 @@ class KafkaProducer(object):
         #global self.timeCntInSec
         while True:
             self.timeCntInSec += 1
-            print ("clock sig cnt: " + str(self.timeCntInSec))
+            if (self.timeCntInSec % 60 == 0):
+                print ("clock sig cnt: " + str(self.timeCntInSec) + "second")
             sleep(1)
 
     def syncProduceMsgs(self):
