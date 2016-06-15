@@ -1,14 +1,9 @@
 import sys
 from pyspark import SparkContext, SQLContext
-#import ast
 from cassandra.cluster import Cluster
 from boto.s3.connection import S3Connection
 import os
 import boto
-#sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/config/')
-#from constants import FILTER_SET
-#from spark_constants import SPARK_ADDRESS
-#from nltk import word_tokenize
 from random import randint
 import json
 import copy
@@ -20,32 +15,12 @@ GRAPH_NAME = 'userInCommon'
 UPTBL_NAME = 'user_post_table'
 PUTBL_NAME = 'post_user_table'
 
-UPCOLUMN_ONE = 'author'
-UPCOLUMN_TWO = 'created_utc'
-UPCOLUMN_THREE = 'url'
-UPCOLUMN_FOUR = 'subreddit'
-UPCOLUMN_FIVE = 'title'
-UPCOLUMN_SIX = 'year_month'
-UPCOLUMN_SEVEN = 'body'
-
-PUCOLUMN_ONE = 'url'
-PUCOLUMN_TWO = 'author'
-PUCOLUMN_THREE = 'created_utc'
-PUCOLUMN_FOUR = 'subreddit'
-PUCOLUMN_FIVE = 'title'
-PUCOLUMN_SIX = 'year_month'
-PUCOLUMN_SEVEN = 'body'
-
 REPARTITION_SIZE = 3000
 FROM_YEAR_MONTH = sys.argv[1]
 
 AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID', 'default')
 AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY', 'default')
 RAW_JSON_REDDIT_BUCKET = "reddit-comments"
-#FOLDER_NAME = "2015/"
-#FOLDER_NAME = "2007/"
-#FILE_NAME = "RC_2015-12"
-#FILE_NAME = "RC_2007-10"
 
 def extractJsonToList(filename):
     result = []
@@ -64,19 +39,33 @@ def insert_into_cassandra(partition):
         session = cluster.connect(KEY_SPACE)
         user_post_stmt = session.prepare("INSERT INTO user_post_table (user, created_utc, url, subreddit, title, year_month, body) VALUES (?,?,?,?,?,?,?)")
         post_user_stmt = session.prepare("INSERT INTO post_user_table (url, user, created_utc, subreddit, title, year_month, body) VALUES (?, ?, ?, ?, ?, ?, ?)")
-        #user_post_stmt = session.prepare("INSERT INTO {0} ({1}, {2}, {3}, {4}, {5}, {6}, {7}) VALUES (?, ?, ?, ?, ?, ?, ?)".format(UPTBL_NAME, UPCOLUMN_ONE, UPCOLUMN_TWO, UPCOLUMN_THREE, UPCOLUMN_FOUR, UPCOLUMN_FIVE, UPCOLUMN_SIX, UPCOLUMN_SEVEN))
-        #post_user_stmt = session.prepare("INSERT INTO {0} ({1}, {2}, {3}, {4}, {5}, {6}, {7}) VALUES (?, ?, ?, ?, ?, ?, ?)".format(PUTBL_NAME, PUCOLUMN_ONE, PUCOLUMN_TWO, PUCOLUMN_THREE, PUCOLUMN_FOUR, PUCOLUMN_FIVE, PUCOLUMN_SIX, PUCOLUMN_SEVEN))
         for item in partition:
                                                 # author  created_utc            url     subreddit  id   year_month body
-            #user_post_table = user_post_stmt.bind([item[0], int(item[2]) * 1000, item[10], item[3], item[9], item[1], item[5]])
-            #post_user_table = post_user_stmt.bind([item[10], item[0], int(item[2]) * 1000, item[3], item[9], item[1], item[5]])
-            #session.execute(user_post_stmt, ('abc', t, 'ddd', 'eeee', 'fffff', 'ggggg', 'hhhhhh'))
             session.execute(user_post_stmt, (item[0], long(item[2]) * 1000, item[10], item[3], item[9], item[1], item[5]))
             session.execute(post_user_stmt, (item[10], item[0], long(item[2]) * 1000, item[3], item[9], item[1], item[5]))
         session.shutdown()
         cluster.shutdown()
 
-  
+
+def insert_graph(partition):         
+    if partition:
+        cluster = Cluster(CASSANDRA_CLUSTER_IP_LIST)
+        session = cluster.connect(KEY_SPACE)
+        graph_stmt = session.prepare("INSERT INTO user_graph (user1, nCommonPosts, user2) VALUES (?,?,?)")
+        
+        session.execute(graph_stmt, ("Leo", 5, "David"))
+        for item in partition:
+            session.execute(graph_stmt, (item[0], int(item[1]), item[2]))
+            session.execute(graph_stmt, (item[2], int(item[1]), item[0]))
+        session.shutdown()
+        cluster.shutdown()
+
+
+def makeAscOrder(keyValuesPair):
+    if (keyValuesPair[1][0] > keyValuesPair[1][1]):
+        return (keyValuesPair[0], (keyValuesPair[1][1], keyValuesPair[1][0]))
+    else:
+        return keyValuesPair
 
 def main():
 
@@ -88,40 +77,70 @@ def main():
     conn = S3Connection(AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
     #conn = boto.connect_s3(AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
     bucket = conn.get_bucket(RAW_JSON_REDDIT_BUCKET)
-    #key = bucket.get_key(FOLDER_NAME + FILE_NAME)
 
     def addTitleURL(cmtTuple):
         onePst = bcURL.value[randint(0, 999)]
         return  cmtTuple + (onePst[0], onePst[1]) # adding random title and url
  
-    #logFile = 's3a://reddit-comments/2007/RC_2007-10'
-    #df = sqlContext.read.json(logFile)
-    #df = sqlContext.jsonFile(logFile)
-    #users_rdd = df.filter(df['author'] != '[deleted]') 
-    #year = 2007
-    #month = 12
-    #users_row = users_rdd.map(lambda json: (json.author, '{0}_{1}'.format(year, month), json.created_utc, json.subreddit, json.id, json.body, json.score, json.ups, json.controversiality))\
-    #                     .map(addTitleURL)
-    #users_row.foreachPartition(insert_into_cassandra)
+    logFile = 's3a://reddit-comments/2007/RC_2007-10'
+    df = sqlContext.read.json(logFile)
+    df = sqlContext.jsonFile(logFile)
+    users_rdd = df.filter(df['author'] != '[deleted]') 
+    year = 2007
+    month = 12
+    users_row = users_rdd.map(lambda json: (json.author, '{0}_{1}'.format(year, month), json.created_utc, json.subreddit, json.id, json.body, json.score, json.ups, json.controversiality))\
+                         .map(addTitleURL)\
+                         .repartition(REPARTITION_SIZE)
+    users_row.foreachPartition(insert_into_cassandra)
 
-    for key in bucket.list():
-        if '-' not in key.name.encode('utf-8'): # filter out folders and _SUCCESS
-            continue
-        logFile = 's3a://{0}/{1}'.format(RAW_JSON_REDDIT_BUCKET, key.name.encode('utf-8'))
-        year = logFile.split('-')[1][-4:] 
-        month = logFile.split('-')[2]
-        from_year = FROM_YEAR_MONTH.split('_')[0]
-        from_month = FROM_YEAR_MONTH.split('_')[1]
-        if int(year) < int(from_year) or (int(year) == int(from_year) and int(month) < int(from_month)):
-            continue
-        df = sqlContext.read.json(logFile)
-        df = sqlContext.jsonFile(logFile)
-        users_rdd = df.filter(df['author'] != '[deleted]') 
-                                               #   0                     1                        2                3            4          5          6          7              8           9 (title)   10(url)
-        users_row = users_rdd.map(lambda json: (json.author, '{0}_{1}'.format(year, month), json.created_utc, json.subreddit, json.id, json.body, json.score, json.ups, json.controversiality))\
-                             .map(addTitleURL)\
-                             .repartition(REPARTITION_SIZE)
-        users_row.foreachPartition(insert_into_cassandra)
+    # calculate user relationship graph
+    post2user = users_row.map(lambda x: (x[10], x[0]))
+    #graph     = post2user.join(post2user)\                       # self join to find user relationship by posts
+    #                     .filter(lambda x: x[1][0] != x[1][1])\  # remove all self linked relationship
+    #                     .map(makeAscOrder)\                     # make to asc order by user name
+    #                     .distinct()\        # remove duplicated user pairs, because the relationship is mutual
+    #                     .map(lambda x: (x[1], 1))\              # ready tho count number of common edges
+    #                     .reduceByKey(lambda x, y: x+y)\         # count total number for every edge/relationship
+    #                     .map(lambda x: (x[0][0], x[1], x[0][1]))# flatten and ready to write table
+    graph     = post2user.join(post2user)\
+                         .filter(lambda x: x[1][0] != x[1][1])\
+                         .map(makeAscOrder)\
+                         .distinct()\
+                         .map(lambda x: (x[1], 1))\
+                         .reduceByKey(lambda x, y: x+y)\
+                         .map(lambda x: (x[0][0], x[1], x[0][1]))
+    graph.foreachPartition(insert_graph)
+
+
+    #for key in bucket.list():
+    #    if '-' not in key.name.encode('utf-8'): # filter out folders and _SUCCESS
+    #        continue
+    #    logFile = 's3a://{0}/{1}'.format(RAW_JSON_REDDIT_BUCKET, key.name.encode('utf-8'))
+    #    year = logFile.split('-')[1][-4:] 
+    #    month = logFile.split('-')[2]
+    #    from_year = FROM_YEAR_MONTH.split('_')[0]
+    #    from_month = FROM_YEAR_MONTH.split('_')[1]
+    #    if int(year) < int(from_year) or (int(year) == int(from_year) and int(month) < int(from_month)):
+    #        continue
+    #    df = sqlContext.read.json(logFile)
+    #    df = sqlContext.jsonFile(logFile)
+    #    users_rdd = df.filter(df['author'] != '[deleted]') 
+    #                                           #   0                     1                        2                3            4          5          6          7              8           9 (title)   10(url)
+    #    users_row = users_rdd.map(lambda json: (json.author, '{0}_{1}'.format(year, month), json.created_utc, json.subreddit, json.id, json.body, json.score, json.ups, json.controversiality))\
+    #                         .map(addTitleURL)\
+    #                         .repartition(REPARTITION_SIZE)
+    #    users_row.foreachPartition(insert_into_cassandra)
+
+    #    # calculate user relationship graph
+    #    post2user = users_row.map(lambda x: (x[10], x[0]))
+    #    graph     = post2user.join(post2user)\
+    #                         .filter(lambda x: x[1][0] != x[1][1])\
+    #                         .map(makeAscOrder)\
+    #                         .distinct()\
+    #                         .map(lambda x: (x[1], 1))\
+    #                         .reduceByKey(lambda x, y: x+y)\
+    #                         .flapMap(lambda x: ((x[0][0], x[1], x[0][1]) , (x[0][1], x[1], x[0][0])))
+    #    graph.foreachPartition(insert_graph)
 
     sc.stop()
 
