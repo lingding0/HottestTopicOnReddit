@@ -26,7 +26,7 @@ def getRecommondationPost(user):
     fellowPostLinks = [row.url for row in fellowPost]
 
     recommendation = list(set(fellowPostLinks) - set(userPostLinks))
-    return recommendation
+    return recommendation[0]
 
 
 def _get_data(time):
