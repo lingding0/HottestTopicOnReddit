@@ -8,6 +8,9 @@ from random import randint
 import json
 import copy
 
+#smallBatch = True
+smallBatch = False
+
 SPARK_ADDRESS = "spark://ip-172-31-0-104:7077"
 CASSANDRA_CLUSTER_IP_LIST = ['ec2-52-41-2-110.us-west-2.compute.amazonaws.com', 'ec2-52-32-133-95.us-west-2.compute.amazonaws.com', 'ec2-52-34-129-5.us-west-2.compute.amazonaws.com']
 KEY_SPACE = 'hotred'
@@ -53,7 +56,6 @@ def insert_graph(partition):
         session = cluster.connect(KEY_SPACE)
         graph_stmt = session.prepare("INSERT INTO user_graph (user1, nCommonPosts, user2) VALUES (?,?,?)")
         
-        session.execute(graph_stmt, ("Leo", 5, "David"))
         for item in partition:
             session.execute(graph_stmt, (item[0], int(item[1]), item[2]))
             session.execute(graph_stmt, (item[2], int(item[1]), item[0]))
@@ -80,67 +82,79 @@ def main():
 
     def addTitleURL(cmtTuple):
         onePst = bcURL.value[randint(0, 999)]
-        return  cmtTuple + (onePst[0], onePst[1]) # adding random title and url
- 
-    logFile = 's3a://reddit-comments/2007/RC_2007-10'
-    df = sqlContext.read.json(logFile)
-    df = sqlContext.jsonFile(logFile)
-    users_rdd = df.filter(df['author'] != '[deleted]') 
-    year = 2007
-    month = 12
-    users_row = users_rdd.map(lambda json: (json.author, '{0}_{1}'.format(year, month), json.created_utc, json.subreddit, json.id, json.body, json.score, json.ups, json.controversiality))\
-                         .map(addTitleURL)\
-                         .repartition(REPARTITION_SIZE)
-    users_row.foreachPartition(insert_into_cassandra)
-
-    # calculate user relationship graph
-    post2user = users_row.map(lambda x: (x[10], x[0]))
-    #graph     = post2user.join(post2user)\                       # self join to find user relationship by posts
-    #                     .filter(lambda x: x[1][0] != x[1][1])\  # remove all self linked relationship
-    #                     .map(makeAscOrder)\                     # make to asc order by user name
-    #                     .distinct()\        # remove duplicated user pairs, because the relationship is mutual
-    #                     .map(lambda x: (x[1], 1))\              # ready tho count number of common edges
-    #                     .reduceByKey(lambda x, y: x+y)\         # count total number for every edge/relationship
-    #                     .map(lambda x: (x[0][0], x[1], x[0][1]))# flatten and ready to write table
-    graph     = post2user.join(post2user)\
-                         .filter(lambda x: x[1][0] != x[1][1])\
-                         .map(makeAscOrder)\
-                         .distinct()\
-                         .map(lambda x: (x[1], 1))\
-                         .reduceByKey(lambda x, y: x+y)\
-                         .map(lambda x: (x[0][0], x[1], x[0][1]))
-    graph.foreachPartition(insert_graph)
+        return  cmtTuple + (onePst[0], onePst[1]) # adding title and url
 
 
-    #for key in bucket.list():
-    #    if '-' not in key.name.encode('utf-8'): # filter out folders and _SUCCESS
-    #        continue
-    #    logFile = 's3a://{0}/{1}'.format(RAW_JSON_REDDIT_BUCKET, key.name.encode('utf-8'))
-    #    year = logFile.split('-')[1][-4:] 
-    #    month = logFile.split('-')[2]
-    #    from_year = FROM_YEAR_MONTH.split('_')[0]
-    #    from_month = FROM_YEAR_MONTH.split('_')[1]
-    #    if int(year) < int(from_year) or (int(year) == int(from_year) and int(month) < int(from_month)):
-    #        continue
-    #    df = sqlContext.read.json(logFile)
-    #    df = sqlContext.jsonFile(logFile)
-    #    users_rdd = df.filter(df['author'] != '[deleted]') 
-    #                                           #   0                     1                        2                3            4          5          6          7              8           9 (title)   10(url)
-    #    users_row = users_rdd.map(lambda json: (json.author, '{0}_{1}'.format(year, month), json.created_utc, json.subreddit, json.id, json.body, json.score, json.ups, json.controversiality))\
-    #                         .map(addTitleURL)\
-    #                         .repartition(REPARTITION_SIZE)
-    #    users_row.foreachPartition(insert_into_cassandra)
+    if (smallBatch): 
+        logFile = 's3a://reddit-comments/2007/RC_2007-10'
+        #df = sqlContext.read.json(logFile)
+        df = sqlContext.jsonFile(logFile)
+        users_rdd = df.filter(df['author'] != '[deleted]') 
+        year = 2007
+        month = 12
+        users_row = users_rdd.map(lambda json: (json.author, '{0}_{1}'.format(year, month), json.created_utc, json.subreddit, json.id, json.body, json.score, json.ups, json.controversiality))\
+                             .map(addTitleURL)\
+                             .repartition(REPARTITION_SIZE)
+        users_row.foreachPartition(insert_into_cassandra)
 
-    #    # calculate user relationship graph
-    #    post2user = users_row.map(lambda x: (x[10], x[0]))
-    #    graph     = post2user.join(post2user)\
-    #                         .filter(lambda x: x[1][0] != x[1][1])\
-    #                         .map(makeAscOrder)\
-    #                         .distinct()\
-    #                         .map(lambda x: (x[1], 1))\
-    #                         .reduceByKey(lambda x, y: x+y)\
-    #                         .flapMap(lambda x: ((x[0][0], x[1], x[0][1]) , (x[0][1], x[1], x[0][0])))
-    #    graph.foreachPartition(insert_graph)
+        # calculate user relationship graph
+        # (URL, user) tuple
+        post2user = users_row.map(lambda x: (x[10], x[0]))
+        #graph     = post2user.join(post2user)\                       # self join to find user relationship by posts
+        #                     .filter(lambda x: x[1][0] != x[1][1])\  # remove all self linked relationship
+        #                     .map(makeAscOrder)\                     # make to asc order by user name
+        #                     .distinct()\        # remove duplicated user pairs, because the relationship is mutual
+        #                     .map(lambda x: (x[1], 1))\              # ready tho count number of common edges
+        #                     .reduceByKey(lambda x, y: x+y)\         # count total number for every edge/relationship
+        #                     .map(lambda x: (x[0][0], x[1], x[0][1]))# flatten and ready to write table
+        graph     = post2user.join(post2user)\
+                             .filter(lambda x: x[1][0] != x[1][1])\
+                             .map(makeAscOrder)\
+                             .distinct()\
+                             .map(lambda x: (x[1], 1))\
+                             .reduceByKey(lambda x, y: x+y)\
+                             .map(lambda x: (x[0][0], x[1], x[0][1]))
+        graph.foreachPartition(insert_graph)
+
+    else:
+
+        for key in bucket.list():
+            if '-' not in key.name.encode('utf-8'): # filter out folders and _SUCCESS
+                continue
+            logFile = 's3a://{0}/{1}'.format(RAW_JSON_REDDIT_BUCKET, key.name.encode('utf-8'))
+            year = logFile.split('-')[1][-4:] 
+            month = logFile.split('-')[2]
+            from_year = FROM_YEAR_MONTH.split('_')[0]
+            from_month = FROM_YEAR_MONTH.split('_')[1]
+            if int(year) < int(from_year) or (int(year) == int(from_year) and int(month) < int(from_month)):
+                continue
+            #df = sqlContext.read.json(logFile)
+            df = sqlContext.jsonFile(logFile)
+            users_rdd = df.filter(df['author'] != '[deleted]') 
+                                                   #   0                     1                        2                3            4          5          6          7              8           9 (title)   10(url)
+            users_row = users_rdd.map(lambda json: (json.author, '{0}_{1}'.format(year, month), json.created_utc, json.subreddit, json.id, json.body, json.score, json.ups, json.controversiality))\
+                                 .map(addTitleURL)\
+                                 .repartition(REPARTITION_SIZE)
+            users_row.foreachPartition(insert_into_cassandra)
+
+            # calculate user relationship graph
+            # (URL, user) tuple
+            post2user = users_row.map(lambda x: (x[10], x[0]))
+            #graph     = post2user.join(post2user)\                       # self join to find user relationship by posts
+            #                     .filter(lambda x: x[1][0] != x[1][1])\  # remove all self linked relationship
+            #                     .map(makeAscOrder)\                     # make to asc order by user name
+            #                     .distinct()\        # remove duplicated user pairs, because the relationship is mutual
+            #                     .map(lambda x: (x[1], 1))\              # ready tho count number of common edges
+            #                     .reduceByKey(lambda x, y: x+y)\         # count total number for every edge/relationship
+            #                     .map(lambda x: (x[0][0], x[1], x[0][1]))# flatten and ready to write table
+            graph     = post2user.join(post2user)\
+                                 .filter(lambda x: x[1][0] != x[1][1])\
+                                 .map(makeAscOrder)\
+                                 .distinct()\
+                                 .map(lambda x: (x[1], 1))\
+                                 .reduceByKey(lambda x, y: x+y)\
+                                 .map(lambda x: (x[0][0], x[1], x[0][1]))
+            graph.foreachPartition(insert_graph)
 
     sc.stop()
 
