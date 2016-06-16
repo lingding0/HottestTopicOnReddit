@@ -16,7 +16,11 @@ CASSANDRA_CLUSTER_IP_LIST = ['ec2-52-41-2-110.us-west-2.compute.amazonaws.com', 
 KEY_SPACE = 'hotred'
 
 # Kafka streaming connection parameters
-kafka_dns  = "ec2-52-40-27-174.us-west-2.compute.amazonaws.com"
+KAFKA_NODE1 = 'ec2-52-41-93-106.us-west-2.compute.amazonaws.com'
+KAFKA_NODE2 = 'ec2-52-41-99-33.us-west-2.compute.amazonaws.com'
+KAFKA_NODE3 = 'ec2-52-41-132-185.us-west-2.compute.amazonaws.com'
+
+kafka_dns  = KAFKA_NODE1
 kafka_port = "2181"
 
 #sc = SparkContext("spark://ip-172-31-0-104:7077", appName="StreamingKafka")
@@ -152,7 +156,8 @@ def makeAscOrder(keyValuesPair):
         return keyValuesPair
 
 # Kafka brokers
-kafkaParams = {"metadata.broker.list": "ec2-52-40-27-174.us-west-2.compute.amazonaws.com:9092,ec2-52-37-195-19.us-west-2.compute.amazonaws.com:9092,ec2-52-39-242-87.us-west-2.compute.amazonaws.com:9092"}
+BROKER_LIST = KAFKA_NODE1 + ':9092,' + KAFKA_NODE2 + ':9092,' + KAFKA_NODE3 + ':9092'
+kafkaParams = {"metadata.broker.list": BROKER_LIST}
 kafkaStream = KafkaUtils.createDirectStream(ssc,  # stream context
                                               ["reddit"], # topics
                                               kafkaParams) # broker list, auto connect to each partition

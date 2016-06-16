@@ -12,13 +12,21 @@ import copy
 smallBatch = False
 
 SPARK_ADDRESS = "spark://ip-172-31-0-104:7077"
-CASSANDRA_CLUSTER_IP_LIST = ['ec2-52-41-2-110.us-west-2.compute.amazonaws.com', 'ec2-52-32-133-95.us-west-2.compute.amazonaws.com', 'ec2-52-34-129-5.us-west-2.compute.amazonaws.com']
+#CASSANDRA_NODE1 = os.getenv('CASSANDRA_NODE1', 'default')
+#CASSANDRA_NODE2 = os.getenv('CASSANDRA_NODE2', 'default')
+#CASSANDRA_NODE3 = os.getenv('CASSANDRA_NODE3', 'default')
+CASSANDRA_NODE1 = 'ec2-52-41-2-110.us-west-2.compute.amazonaws.com'
+CASSANDRA_NODE2 = 'ec2-52-32-133-95.us-west-2.compute.amazonaws.com'
+CASSANDRA_NODE3 = 'ec2-52-34-129-5.us-west-2.compute.amazonaws.com'
+CASSANDRA_CLUSTER_IP_LIST = [CASSANDRA_NODE1, CASSANDRA_NODE2, CASSANDRA_NODE3]
+
 KEY_SPACE = 'hotred'
 GRAPH_NAME = 'userInCommon'
 UPTBL_NAME = 'user_post_table'
 PUTBL_NAME = 'post_user_table'
 
-REPARTITION_SIZE = 3000
+#REPARTITION_SIZE = 3000 # repartition only when data is skewed accross workers, example: one worker has 80% of data
+REPARTITION_SIZE = 500
 FROM_YEAR_MONTH = sys.argv[1]
 
 AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID', 'default')
@@ -93,8 +101,8 @@ def main():
         year = 2007
         month = 12
         users_row = users_rdd.map(lambda json: (json.author, '{0}_{1}'.format(year, month), json.created_utc, json.subreddit, json.id, json.body, json.score, json.ups, json.controversiality))\
-                             .map(addTitleURL)\
-                             .repartition(REPARTITION_SIZE)
+                             .map(addTitleURL)
+                             #.repartition(REPARTITION_SIZE)
         users_row.foreachPartition(insert_into_cassandra)
 
         # calculate user relationship graph
@@ -133,8 +141,8 @@ def main():
             users_rdd = df.filter(df['author'] != '[deleted]') 
                                                    #   0                     1                        2                3            4          5          6          7              8           9 (title)   10(url)
             users_row = users_rdd.map(lambda json: (json.author, '{0}_{1}'.format(year, month), json.created_utc, json.subreddit, json.id, json.body, json.score, json.ups, json.controversiality))\
-                                 .map(addTitleURL)\
-                                 .repartition(REPARTITION_SIZE)
+                                 .map(addTitleURL)
+                                 #.repartition(REPARTITION_SIZE)
             users_row.foreachPartition(insert_into_cassandra)
 
             # calculate user relationship graph
@@ -154,6 +162,7 @@ def main():
                                  .map(lambda x: (x[1], 1))\
                                  .reduceByKey(lambda x, y: x+y)\
                                  .map(lambda x: (x[0][0], x[1], x[0][1]))
+                                 #.repartition(REPARTITION_SIZE)
             graph.foreachPartition(insert_graph)
 
     sc.stop()
