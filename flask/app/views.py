@@ -9,23 +9,58 @@ session = cluster.connect("hotred")
 
 session.default_fetch_size = None #turn off paging to allow IN () ORDER BY queries, since only a few records are SELECTed anyway
 
+def getTopAccUser(dict1, dict2):
+    d = {}
+    maxValue = -1;
+    maxKey = ''
+    for key, value in dict1.iteritems():
+        if (dict2[key] == None):
+            d[key] = dict1[key]
+        else:
+            d[key] = dict1[key] + dict2[key]
+        if (d[key] > maxValue):
+            maxValue = d[key]
+            maxKey   = key
+
+    for key, value in dict2.iteritems():
+        if (dict1[key] == None):
+            d[key] = dict2[key]
+        if (d[key] > maxValue):
+            maxValue = d[key]
+            maxKey   = key
+
+    return maxKey
+
+
 def getPostOfUser(user):
-    allUserPosts = session.execute("SELECT * FROM user_post_table WHERE user=%s", parameters=[user])
-    return allUserPosts
+    userPostsBatchLayer = session.execute("SELECT * FROM user_post_table WHERE user=%s", parameters=[user])
+    userPostsRtimeLayer = session.execute("SELECT * FROM user_post_table_realtime WHERE user=%s", parameters=[user])
+    batchList = [row.url for row in userPostsBatchLayer]
+    rtimeList = [row.url for row in userPostsRtimeLayer]
+    return list(set(batchList) + set(rtimeList))
+
 
 def getStrongestFellowUser(user):
-    strongest = session.execute("SELECT * FROM user_graph WHERE user1=%s LIMIT 1", parameters=[user])
-    return strongest
+    strongestBatchLayer = session.execute("SELECT * FROM user_graph WHERE user1=%s LIMIT 10", parameters=[user])
+    strongestRtimeLayer = session.execute("SELECT * FROM user_graph_realtime WHERE user1=%s LIMIT 10", parameters=[user])
+    
+    batchTable = {}
+    for row in strongestBatchLayer:
+        batchTable[row.usr2] = row.ncommonposts
+
+    rtimeTable = {}
+    for row in strongestRtimeLayer:
+        rtimeTable[row.usr2] = row.ncommonposts
+
+    return getTopAccUser(batchList, rtimeList)
+
 
 def getRecommondationPost(user):
     fellowUser = getStrongestFellowUser(user)
-    fellowPost = getPostOfUser(fellowUser[0].user2)
+    fellowPost = getPostOfUser(fellowUser)
     userPost   = getPostOfUser(user)
     
-    userPostLinks   = [row.url for row in userPost]
-    fellowPostLinks = [row.url for row in fellowPost]
-
-    recommendation = list(set(fellowPostLinks) - set(userPostLinks))
+    recommendation = list(set(fellowPost) - set(userPost))
     return recommendation[0]
 
 

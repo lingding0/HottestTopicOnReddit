@@ -29,7 +29,7 @@ outFh = open(outFileName, 'w')
 
 def crateOneCmt(timeOffset):
     # random select one coment for modification
-    onePst = copy.deepcopy(submittions[randint(0, 999)])
+    onePst = copy.deepcopy(submittions[randint(0, 9)])
     oneCmt = copy.deepcopy(comments[randint(0, 999999)])
     oneCmt["created_utc"] = str(startTimeUTC + timeOffset)
     oneCmt["title"] = onePst["title"]
