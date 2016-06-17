@@ -1,1 +1,2 @@
-spark-submit --packages org.apache.spark:spark-streaming-kafka_2.10:1.6.1 --master spark://ip-172-31-0-104:7077 hotred_stream.py "ec2-52-40-27-174.us-west-2.compute.amazonaws.com:9092,ec2-52-37-195-19.us-west-2.compute.amazonaws.com:9092,ec2-52-39-242-87.us-west-2.compute.amazonaws.com:9092" 
+#spark-submit --packages org.apache.spark:spark-streaming-kafka_2.10:1.6.1 --master spark://ip-172-31-0-118:7077 hotred_stream.py "ec2-52-40-27-174.us-west-2.compute.amazonaws.com:9092,ec2-52-37-195-19.us-west-2.compute.amazonaws.com:9092,ec2-52-39-242-87.us-west-2.compute.amazonaws.com:9092" 
+spark-submit --packages org.apache.spark:spark-streaming-kafka_2.10:1.6.1 --master spark://ip-172-31-0-118:7077 --executor-memory 6500M --driver-memory 6500M hotred_stream.py 
