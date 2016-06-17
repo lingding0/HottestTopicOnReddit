@@ -7,11 +7,16 @@ import boto
 from random import randint
 import json
 import copy
+import redis
 
-#smallBatch = True
-smallBatch = False
+smallBatch = True
+#smallBatch = False
 
 SPARK_ADDRESS = "spark://ip-172-31-0-104:7077"
+REDIS_NODE = "ec2-52-40-80-40.us-west-2.compute.amazonaws.com"
+
+USE_CASSANDRA = True
+USE_REDIS = True
 #CASSANDRA_NODE1 = os.getenv('CASSANDRA_NODE1', 'default')
 #CASSANDRA_NODE2 = os.getenv('CASSANDRA_NODE2', 'default')
 #CASSANDRA_NODE3 = os.getenv('CASSANDRA_NODE3', 'default')
@@ -33,6 +38,15 @@ AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID', 'default')
 AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY', 'default')
 RAW_JSON_REDDIT_BUCKET = "reddit-comments"
 
+
+def agg2Redis(db, key, value):
+    oldValue = db.get(key);
+    if (oldValue == None):
+        db.set(key, value.encode('utf-8'))
+    else:
+        db.set(key, oldValue + ' ' + value.encode('utf-8'))
+
+
 def extractJsonToList(filename):
     result = []
     with open(filename) as json_file:
@@ -46,29 +60,47 @@ urlTitlePool = [(item['title'], item['url']) for item in submittions]
 
 def insert_into_cassandra(partition):         
     if partition:
-        cluster = Cluster(CASSANDRA_CLUSTER_IP_LIST)
-        session = cluster.connect(KEY_SPACE)
-        user_post_stmt = session.prepare("INSERT INTO user_post_table (user, created_utc, url, subreddit, title, year_month, body) VALUES (?,?,?,?,?,?,?)")
-        post_user_stmt = session.prepare("INSERT INTO post_user_table (url, user, created_utc, subreddit, title, year_month, body) VALUES (?, ?, ?, ?, ?, ?, ?)")
+        if (USE_REDIS):
+            r1 = redis.StrictRedis(host=REDIS_NODE, port=6379, db=1) # find post by user on batch layer
+            r2 = redis.StrictRedis(host=REDIS_NODE, port=6379, db=2) # find user by post on batch layer
+
+        if (USE_CASSANDRA):
+            cluster = Cluster(CASSANDRA_CLUSTER_IP_LIST)
+            session = cluster.connect(KEY_SPACE)
+            user_post_stmt = session.prepare("INSERT INTO user_post_table (user, created_utc, url, subreddit, title, year_month, body) VALUES (?,?,?,?,?,?,?)")
+            post_user_stmt = session.prepare("INSERT INTO post_user_table (url, user, created_utc, subreddit, title, year_month, body) VALUES (?, ?, ?, ?, ?, ?, ?)")
         for item in partition:
+            if (USE_REDIS):
+                agg2Redis(r1, item[0], item[10])
+                agg2Redis(r2, item[10], item[0])
+            if (USE_CASSANDRA):
                                                 # author  created_utc            url     subreddit  id   year_month body
-            session.execute(user_post_stmt, (item[0], long(item[2]) * 1000, item[10], item[3], item[9], item[1], item[5]))
-            session.execute(post_user_stmt, (item[10], item[0], long(item[2]) * 1000, item[3], item[9], item[1], item[5]))
-        session.shutdown()
-        cluster.shutdown()
+                session.execute(user_post_stmt, (item[0], long(item[2]) * 1000, item[10], item[3], item[9], item[1], item[5]))
+                session.execute(post_user_stmt, (item[10], item[0], long(item[2]) * 1000, item[3], item[9], item[1], item[5]))
+        if (USE_CASSANDRA):
+            session.shutdown()
+            cluster.shutdown()
 
 
 def insert_graph(partition):         
     if partition:
-        cluster = Cluster(CASSANDRA_CLUSTER_IP_LIST)
-        session = cluster.connect(KEY_SPACE)
-        graph_stmt = session.prepare("INSERT INTO user_graph (user1, nCommonPosts, user2) VALUES (?,?,?)")
+        if (USE_REDIS):
+            r0 = redis.StrictRedis(host=REDIS_NODE, port=6379, db=0) # graph on batch layer
+        if (USE_CASSANDRA):
+            cluster = Cluster(CASSANDRA_CLUSTER_IP_LIST)
+            session = cluster.connect(KEY_SPACE)
+            graph_stmt = session.prepare("INSERT INTO user_graph (user1, nCommonPosts, user2) VALUES (?,?,?)")
         
         for item in partition:
-            session.execute(graph_stmt, (item[0], int(item[1]), item[2]))
-            session.execute(graph_stmt, (item[2], int(item[1]), item[0]))
-        session.shutdown()
-        cluster.shutdown()
+            if (USE_REDIS):
+                r0.set(item[0], str(item[1]) + ' ' + str(item[2]))
+                r0.set(item[2], str(item[1]) + ' ' + str(item[0]))
+            if (USE_CASSANDRA):
+                session.execute(graph_stmt, (item[0], int(item[1]), item[2]))
+                session.execute(graph_stmt, (item[2], int(item[1]), item[0]))
+        if (USE_CASSANDRA):
+            session.shutdown()
+            cluster.shutdown()
 
 
 def makeAscOrder(keyValuesPair):
