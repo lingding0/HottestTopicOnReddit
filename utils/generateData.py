@@ -8,8 +8,10 @@ import copy
 outFileName      = str(sys.argv[1])
 throughputPerSec = int(sys.argv[2])
 
-#startTimeUTC = 1420070668
-startTimeUTC = 0
+smallFile = True
+
+startTimeUTC = 1420070668
+#startTimeUTC = 0
 nHours = 1
 nSecond = int(nHours * 60 * 60) # 12 hours of data
 
@@ -23,17 +25,27 @@ def extractJsonToList(filename):
     return result
 
 submittions = extractJsonToList("/home/ubuntu/Downloads/submittion_1000.txt")
-comments    = extractJsonToList("/home/ubuntu/Downloads/comments_1000000.txt")
 
+if (smallFile):
+    pstRandRange = 300-1
+    cmtRandRange = 150000-1
+    comments  = extractJsonToList("/home/ubuntu/Downloads/comments_1000000.txt")
+    outFileName  = "../data/comment_small_100_persec"
+    throughputPerSec = 1000
+else:
+    pstRandRange = 1000-1
+    cmtRandRange = 1000000-1
+    comments  = extractJsonToList("/home/ubuntu/Downloads/RC_2007-10")
+    
 outFh = open(outFileName, 'w')
 
 def crateOneCmt(timeOffset):
     # random select one coment for modification
-    onePst = copy.deepcopy(submittions[randint(0, 9)])
-    oneCmt = copy.deepcopy(comments[randint(0, 999999)])
+    onePst = copy.deepcopy(submittions[randint(0, pstRandRange)])
+    oneCmt = copy.deepcopy(comments[randint(0, cmtRandRange)])
     oneCmt["created_utc"] = str(startTimeUTC + timeOffset)
-    oneCmt["title"] = onePst["title"]
-    oneCmt["url"] = onePst["url"]
+    oneCmt["title"]       = onePst["title"]
+    oneCmt["url"]         = onePst["url"]
     return oneCmt
 
 def createCommentInOneSec(throughputPerSec, timeOffset):
