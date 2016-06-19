@@ -110,12 +110,13 @@ def getDummy():
 @app.route('/')
 @app.route('/index')
 def index():
-    json_data = getDummy()
     return render_template("index.html")
 
-@app.route('/getTopic/<time>')
-def get_topic(time):
-    return _get_json_data(time)
+@app.route('/show')
+def showData():
+    json_data = getDummy()
+    user = 'myDummyUser'
+    return render_template("showData.html", user=user, json_data=json_data)
 
 @app.route('/rec/<user>')
 def get_rec(user):
