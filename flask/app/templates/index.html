@@ -1,18 +1,73 @@
+<!DOCTYPE html>
 <html>
-<head>
-<title>Hottest Topic on Reddit</title>
-</head>
-<body>
-<div style="font-size:5em"; align="center">Hottest Topic on Reddit</div>
-<div style="font-size:3em"; align="center">Real time Reddit news feed</div>
-<div align="center">
-	<p>
-	<form action="time" method="get">
-	Please input the timestamp you want:
-		<input type="text" name="time"></input>
-		<input type="submit" value="Done"></input>
-	</form>
-	</p>
-</div>
-</body>
+	<head>
+		<meta charset="utf-8" />
+		<title>my first web page</title>
+		<link rel="stylesheet" href="../bootstrap/css/bootstrap.min.css">
+		<style>
+			.submit-sec {
+				margin-top: 15px;
+			}
+			section {
+				margin-top: 30px;
+			}
+			
+			.showdata {
+				width: 50%;
+			}
+		</style>
+  		<script src="../bootstrap/js/bootstrap.min.js"></script>
+	</head>
+	<body>
+		<div class="container">
+			<h1>Hottest Topic on Reddit</h1>
+			<h3>Real Time Reddit News Feed</h3>
+			<section>
+				<form action="time" method="get">
+					<div class="form-group">
+						<label for="usertimestamp">Please input timestamp:</label>
+						<input type="text" class="form-control" id="usertimestamp">
+						<div class="submit-sec">
+							<input type="submit" value="Done" class="btn btn-primary">
+						</div>
+					</div>
+				</form>
+			</section>
+			<section class="showdata">
+				<p>Here is the data that comes back from the database regarding the above user:</p>
+				<table class="table table-striped">
+					<thead>
+						<tr>
+							<th>First Name</th>
+							<th>Last Name</th>
+							<th>id</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>Brenda</td>
+							<td>Huang</td>
+							<td>12345</td>
+						</tr>
+						<tr>
+							<td>Leo</td>
+							<td>Ding</td>
+							<td>23456</td>
+						</tr>
+						<tr>
+							<td>Adele</td>
+							<td>Ding</td>
+							<td>45678</td>
+						</tr>
+						<tr>
+							<td>Chloe</td>
+							<td>Ding</td>
+							<td>45678</td>
+						</tr>
+					</tbody>
+				</table>
+			</section>
+		</div>
+		
+	</body>
 </html>
