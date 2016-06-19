@@ -3,7 +3,7 @@
 	<head>
 		<meta charset="utf-8" />
 		<title>my first web page</title>
-		<link rel="stylesheet" href="../bootstrap/css/bootstrap.min.css">
+		<link rel="stylesheet" href="{{ url_for('static', filename='bootstrap/css/bootstrap.min.css') }}">
 		<style>
 			.submit-sec {
 				margin-top: 15px;
@@ -16,7 +16,7 @@
 				width: 50%;
 			}
 		</style>
-  		<script src="../bootstrap/js/bootstrap.min.js"></script>
+  		<script src="{{ url_for('static', filename='bootstrap/js/bootstrap.min.js') }}"></script>
 	</head>
 	<body>
 		<div class="container">
@@ -25,7 +25,7 @@
 			<section>
 				<form action="time" method="get">
 					<div class="form-group">
-						<label for="usertimestamp">Please input timestamp:</label>
+						<label for="usertimestamp">Please input your user name:</label>
 						<input type="text" class="form-control" id="usertimestamp">
 						<div class="submit-sec">
 							<input type="submit" value="Done" class="btn btn-primary">
@@ -34,13 +34,13 @@
 				</form>
 			</section>
 			<section class="showdata">
-				<p>Here is the data that comes back from the database regarding the above user:</p>
+				<p>Some of people are commenting on these topics you may interested:</p>
 				<table class="table table-striped">
 					<thead>
 						<tr>
-							<th>First Name</th>
-							<th>Last Name</th>
-							<th>id</th>
+							<th>URL</th>
+							<th>Title</th>
+							<th>By User</th>
 						</tr>
 					</thead>
 					<tbody>

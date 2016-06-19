@@ -11,6 +11,7 @@ from threading import Thread
 
 REWIND = True
 SMALL_STREAM = True
+FAST_INJECT = True
 
 if (SMALL_STREAM):
     KAFKA_TOPIC = 'reddit_small'
@@ -43,28 +44,53 @@ class KafkaProducer(object):
             streamInfileName = self.install_dir + '/data/comment_small_100_persec'
         else:
             streamInfileName = self.install_dir + '/' + self.zipdb_file
-         
-        with open(streamInfileName) as data_file:
-            for line in data_file:
-                data = json.loads(line)
-                for i in range(len(data)):
-                    user = bytes(data[i]['author'])
-                    msg = json.dumps(data[i])
+
+        if FAST_INJECT:        
+            lines = []
+            with open(streamInfileName) as data_file:
+                for line in data_file:
+                    lines.append(line)
+            #for i in range(len(data)):
+            while True:
+                oneSecData = json.loads(lines[secondCnt%nSecond])
+                for oneMsg in oneSecData:
+                    user = bytes(oneMsg['author'])
+                    msg = json.dumps(oneMsg)
 
                     if msg_cnt % 5000 == 0:
                         print "Sent " + str(msg_cnt) + " messages to Kafka"
 
                     # use user ID as partition key for better spark channel banlance
-                    self.producer.send(KAFKA_TOPIC, user, msg)
-                    #pp.pprint(msg)
+                    self.producer.send_message(KAFKA_TOPIC, user, msg)
                     msg_cnt += 1
-                    #print "Sent Total " + str(msg_cnt) + " messages to Kafka"
-                
+            
                 secondCnt += 1
-                if (REWIND and secondCnt % nSecond == 0):
-                    data_file.seek(0, 0) # rewind and start from beginning
                 while (secondCnt >= self.timeCntInSec):
                     sleep(0.05) # look at other thread clock signal
+      
+        else: 
+
+            with open(streamInfileName) as data_file:
+                for line in data_file:
+                    data = json.loads(line)
+                    for i in range(len(data)):
+                        user = bytes(data[i]['author'])
+                        msg = json.dumps(data[i])
+
+                        if msg_cnt % 5000 == 0:
+                            print "Sent " + str(msg_cnt) + " messages to Kafka"
+
+                        # use user ID as partition key for better spark channel banlance
+                        self.producer.send(KAFKA_TOPIC, user, msg)
+                        #pp.pprint(msg)
+                        msg_cnt += 1
+                        #print "Sent Total " + str(msg_cnt) + " messages to Kafka"
+                    
+                    secondCnt += 1
+                    if (REWIND and secondCnt % nSecond == 0):
+                        data_file.seek(0, 0) # rewind and start from beginning
+                    while (secondCnt >= self.timeCntInSec):
+                        sleep(0.05) # look at other thread clock signal
 
         print "Sent Total " + str(msg_cnt) + " messages to Kafka"
 	data_file.close()

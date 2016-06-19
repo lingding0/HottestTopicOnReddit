@@ -12,7 +12,7 @@ smallFile = True
 
 startTimeUTC = 1420070668
 #startTimeUTC = 0
-nHours = 1
+nHours = 0.2
 nSecond = int(nHours * 60 * 60) # 12 hours of data
 
 # extract submittion
