@@ -2,7 +2,7 @@
 <html>
 	<head>
 		<meta charset="utf-8" />
-		<title>my first web page</title>
+		<title>Hottest Topic on Reddit</title>
 		<link rel="stylesheet" href="{{ url_for('static', filename='bootstrap/css/bootstrap.min.css') }}">
 		<style>
 			.submit-sec {
@@ -16,35 +16,23 @@
 				width: 50%;
 			}
 			
-			#showPageLink {
-				visibility: hidden;
-			}
 		</style>
   		<script src="{{ url_for('static', filename='bootstrap/js/bootstrap.min.js') }}"></script>
-  		<script>
-  			var btn = document.getElementById("done-btn");
-  			btn.addEventListener("click", function(){
-  				document.getElementById("showPageLink").click();
-  			)};
-  		</script>
 	</head>
 	<body>
 		<div class="container">
 			<h1>Hottest Topic on Reddit</h1>
 			<h3>Real Time Reddit News Feed Search</h3>
 			<section>
-				<form action="time" method="get">
+				<form action="/show" method="get">
 					<div class="form-group">
 						<label for="usertimestamp">Please input your user name:</label>
-						<input type="text" class="form-control" id="usertimestamp">
+						<input type="text" class="form-control" name="user" id="usertimestamp">
 						<div class="submit-sec">
 							<input id="done-btn" type="submit" value="Done" class="btn btn-primary">
 						</div>
 					</div>
 				</form>
-				<div>
-					<a id="showPageLink" href="/show">See Data for User</a>
-				</div>
 			</section>
 		</div>
 	</body>

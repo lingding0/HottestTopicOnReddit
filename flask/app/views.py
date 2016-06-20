@@ -70,7 +70,8 @@ def getStrongestFellowUser(user):
     return getTopAccUser(batchList, rtimeList)
 
 
-def getRecommondationPost(user):
+def getRecommondationPost():
+    user = request.args.get("user")
     fellowUser = getStrongestFellowUser(user)
     fellowPost = getPostOfUser(fellowUser)
     userPost   = getPostOfUser(user)
@@ -80,12 +81,6 @@ def getRecommondationPost(user):
 
 
 def _get_data(time):
-    #pull latest trades, latest news, and portfolio from database for the user
-    #check which database to query
-    #dbfile = open("/home/ubuntu/.insightproject/cassandra.txt")
-    #db = dbfile.readline().rstrip()
-    #dbfile.close()
-
     #get a few of the latest trades for the user
     latest_topic = session.execute("SELECT * FROM topnews WHERE subreddit_id=%s", parameters=[time])
 
@@ -115,23 +110,6 @@ def index():
 @app.route('/show')
 def showData():
     json_data = getDummy()
-    user = 'myDummyUser'
+    user = request.args.get("user")
     return render_template("showData.html", user=user, json_data=json_data)
-
-@app.route('/rec/<user>')
-def get_rec(user):
-    return getRecommondationPost(user)
-
-@app.route('/abc')
-def get_dummy():
-    return getDummy()
-
-
-#@app.route('/topic')
-#def get_topic():
-#    time=request.args.get("time")
-#    latest_trades, portfolio, latest_news = _get_user_data(request.args.get("user"))
-#    return render_template("user.html", user=user, latest_trades = latest_trades, portfolio = portfolio, latest_news = latest_news)
-
-
 
