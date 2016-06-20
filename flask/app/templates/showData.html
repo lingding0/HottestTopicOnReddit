@@ -5,9 +5,6 @@
 		<title>my first web page</title>
 		<link rel="stylesheet" href="{{ url_for('static', filename='bootstrap/css/bootstrap.min.css') }}">
 		<style>
-			.submit-sec {
-				margin-top: 15px;
-			}
 			section {
 				margin-top: 30px;
 			}
@@ -18,7 +15,7 @@
 		<div class="container">
 			<h1>Hottest Topic on Reddit</h1>
 			<h3>Real Time Reddit News Feed For {{myDummyUser}}</h3>
-			<section class="showdata">
+			<section class="showTable">
 				<p>Some of people are commenting on these topics you may interested:</p>
 				<table class="table table-striped">
 					<thead>
@@ -29,14 +26,18 @@
 						</tr>
 					</thead>
 					<tbody>
+						{% for row in json_data %}
 						<tr>
-							<td>{{json_data.URL}}</td>
-							<td>{{json_data.title}}</td>
-							<td>{{json_data.otherUser}}</td>
+							<td>{{row.URL}}</td>
+							<td>{{row.title}}</td>
+							<td>{{row.otherUser}}</td>
 						</tr>
+						{% endfor %}
 						
 					</tbody>
 				</table>
+			</section>
+			<section class="showChart">
 			</section>
 		</div>
 		

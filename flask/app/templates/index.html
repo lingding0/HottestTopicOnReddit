@@ -15,59 +15,37 @@
 			.showdata {
 				width: 50%;
 			}
+			
+			#showPageLink {
+				visibility: hidden;
+			}
 		</style>
   		<script src="{{ url_for('static', filename='bootstrap/js/bootstrap.min.js') }}"></script>
+  		<script>
+  			var btn = document.getElementById("done-btn");
+  			btn.addEventListener("click", function(){
+  				document.getElementById("showPageLink").click();
+  			)};
+  		</script>
 	</head>
 	<body>
 		<div class="container">
 			<h1>Hottest Topic on Reddit</h1>
-			<h3>Real Time Reddit News Feed</h3>
+			<h3>Real Time Reddit News Feed Search</h3>
 			<section>
 				<form action="time" method="get">
 					<div class="form-group">
 						<label for="usertimestamp">Please input your user name:</label>
 						<input type="text" class="form-control" id="usertimestamp">
 						<div class="submit-sec">
-							<input type="submit" value="Done" class="btn btn-primary">
+							<input id="done-btn" type="submit" value="Done" class="btn btn-primary">
 						</div>
 					</div>
 				</form>
-			</section>
-			<section class="showdata">
-				<p>Some of people are commenting on these topics you may interested:</p>
-				<table class="table table-striped">
-					<thead>
-						<tr>
-							<th>URL</th>
-							<th>Title</th>
-							<th>By User</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>Brenda</td>
-							<td>Huang</td>
-							<td>12345</td>
-						</tr>
-						<tr>
-							<td>Leo</td>
-							<td>Ding</td>
-							<td>23456</td>
-						</tr>
-						<tr>
-							<td>Adele</td>
-							<td>Ding</td>
-							<td>45678</td>
-						</tr>
-						<tr>
-							<td>Chloe</td>
-							<td>Ding</td>
-							<td>45678</td>
-						</tr>
-					</tbody>
-				</table>
+				<div>
+					<a id="showPageLink" href="/show">See Data for User</a>
+				</div>
 			</section>
 		</div>
-		
 	</body>
 </html>
