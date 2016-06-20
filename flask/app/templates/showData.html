@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title>my first web page</title>
+		<link rel="stylesheet" href="{{ url_for('static', filename='bootstrap/css/bootstrap.min.css') }}">
+		<style>
+			.submit-sec {
+				margin-top: 15px;
+			}
+			section {
+				margin-top: 30px;
+			}
+		</style>
+  		<script src="{{ url_for('static', filename='bootstrap/js/bootstrap.min.js') }}"></script>
+	</head>
+	<body>
+		<div class="container">
+			<h1>Hottest Topic on Reddit</h1>
+			<h3>Real Time Reddit News Feed For {{myDummyUser}}</h3>
+			<section class="showdata">
+				<p>Some of people are commenting on these topics you may interested:</p>
+				<table class="table table-striped">
+					<thead>
+						<tr>
+							<th>URL</th>
+							<th>Title</th>
+							<th>By User</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>{{json_data.URL}}</td>
+							<td>{{json_data.title}}</td>
+							<td>{{json_data.otherUser}}</td>
+						</tr>
+						
+					</tbody>
+				</table>
+			</section>
+		</div>
+		
+	</body>
+</html>
