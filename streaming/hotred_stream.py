@@ -19,7 +19,7 @@ USE_REDIS = True
 SMALL_STREAM = True
 
 if (SMALL_STREAM):
-    KAFKA_TOPIC = 'reddit_small'
+    KAFKA_TOPIC = 'reddit2'
 else:
     KAFKA_TOPIC = 'reddit'
 
@@ -29,9 +29,9 @@ CASSANDRA_CLUSTER_IP_LIST = ['ec2-52-41-2-110.us-west-2.compute.amazonaws.com', 
 KEY_SPACE = 'hotred'
 
 # Kafka streaming connection parameters
-KAFKA_NODE1 = 'ec2-52-41-93-106.us-west-2.compute.amazonaws.com'
-KAFKA_NODE2 = 'ec2-52-41-99-33.us-west-2.compute.amazonaws.com'
-KAFKA_NODE3 = 'ec2-52-41-132-185.us-west-2.compute.amazonaws.com'
+KAFKA_NODE1 = 'ec2-52-41-2-110.us-west-2.compute.amazonaws.com'
+KAFKA_NODE2 = 'ec2-52-32-133-95.us-west-2.compute.amazonaws.com'
+KAFKA_NODE3 = 'ec2-52-34-129-5.us-west-2.compute.amazonaws.com'
 
 SPARK_MASTER = 'spark://ip-172-31-0-118:7077'
 
@@ -41,7 +41,7 @@ kafka_port = "2181"
 sc = SparkContext(SPARK_MASTER, appName="StreamingKafka")
 #sc = SparkContext("local[*]", appName="StreamingKafka")
 # streaming batch interval of 5 sec first, and reduce later to 1 sec or lower
-ssc = StreamingContext(sc, 2)
+ssc = StreamingContext(sc, 10)
 #ssc = StreamingContext.getOrCreate(checkpoint,
 #                                   lambda: createContext(host, int(port), output))
 
@@ -175,23 +175,6 @@ def insert_user_table(rdd):
         cluster.shutdown()
 
 
-def insert_dummy(rdd):
-    if rdd:
-        cluster = Cluster(CASSANDRA_CLUSTER_IP_LIST)
-        session = cluster.connect(KEY_SPACE)
-        graph_stmt = session.prepare("INSERT INTO user_graph_realtime (user1, nCommonPosts, user2) VALUES (?,?,?)")
-        session.execute(graph_stmt, ('Leo', 15, 'Andrew'))
-
-        session.shutdown()
-        cluster.shutdown()
-
-
-#def printRdd(rdd):
-#    if rdd:
-#        pp = pprint.PrettyPrinter(indent=4)
-#        for item in rdd:
-#            pp.pprint(item)
-
 def agg2graph(db, key1, value, key2):
     oldValue = db.get(key1 + ' ' + key2);
     if (oldValue == None):
@@ -206,6 +189,15 @@ def agg2Redis(db, key, value):
         db.set(key, value.encode('utf-8'))
     else:
         db.set(key, oldValue + ' ' + value.encode('utf-8'))
+
+
+def insert_realtime_post_title(rdd):
+    if rdd:
+        if (USE_REDIS):
+            # db 8: post-title readtime table
+            r8 = redis.StrictRedis(host=REDIS_NODE, port=6379, db=8) # write on realtime post-title table
+            for item in rdd:
+                r8.set(item[0], item[1].encode('utf-8')) # one one one mapping
 
 
 def insert_realtime_post_user(rdd):
@@ -264,10 +256,13 @@ kafkaStream = KafkaUtils.createDirectStream(ssc,  # stream context
 jsonData  = kafkaStream.map(getJson).filter(lambda x: x[0] != '[deleted]')
 
 #jsonData.foreachRDD(lambda rdd: rdd.foreachPartition(insert_user_table))
+url2title = jsonData.map(lambda x: (x[6], x[7]))
+url2title.foreachRDD(lambda rdd: rdd.foreachPartition(insert_realtime_post_title))
 
 # calculate user relationship graph delta and save into realtime graph
 # (URL, user) tuple
 post2user = jsonData.map(lambda x: (x[6], x[0]))
+post2user.cache()
 post2user.foreachRDD(lambda rdd: rdd.foreachPartition(insert_realtime_post_user))
 #post2user.pprint()
 
@@ -282,10 +277,10 @@ newEdgesByNewPosts = post2user.join(post2user)\
 #newEdgesByNewPosts.pprint()
 
 # 2. new posts that has relationship with batch layer posts
-newEdgesByBatchPosts = post2user.map(lambda x: x[1])\
-                              .flatMap(readUserPostsFromDB)\
-                              .map(makeAscOrder)\
-                              .map(lambda x: (x, 1))
+#newEdgesByBatchPosts = post2user.map(lambda x: x[1])\
+#                              .flatMap(readUserPostsFromDB)\
+#                              .map(makeAscOrder)\
+#                              .map(lambda x: (x, 1))
 
 #newEdgesByBatchPosts.pprint()
 
@@ -298,7 +293,9 @@ newEdgesByRtimePosts = post2user.map(lambda x: x[1])\
 
 #newEdgesByRtimePosts.pprint()
 # Union all type together and count new edges
-allCreatedEdges = newEdgesByNewPosts.union(newEdgesByRtimePosts).union(newEdgesByBatchPosts)
+#allCreatedEdges = newEdgesByNewPosts
+allCreatedEdges = newEdgesByNewPosts.union(newEdgesByRtimePosts)
+#allCreatedEdges = newEdgesByNewPosts.union(newEdgesByRtimePosts).union(newEdgesByBatchPosts)
 
 #allCreatedEdges.pprint()
 
@@ -306,7 +303,7 @@ newEdges  = allCreatedEdges.reduceByKey(lambda x, y: x+y)\
                            .map(lambda x: (x[0][0], x[1], x[0][1]))
 
 newEdges.foreachRDD(lambda rdd: rdd.foreachPartition(insert_graph))
-newEdges.pprint()
+#newEdges.pprint()
 
 ssc.start()
 ssc.awaitTermination()
