@@ -55,7 +55,7 @@ def extractJsonToList(filename):
             result.append(json_data)
     return result
 
-submittions = extractJsonToList("/home/ubuntu/HottestTopicOnReddit/data/submittion_1000.txt")
+submittions = extractJsonToList("/home/ubuntu/HottestTopicOnReddit/data/submittion_10000.txt")
 urlTitlePool = [(item['title'], item['url']) for item in submittions]
 
 def insert_into_cassandra(partition):         
@@ -121,7 +121,8 @@ def main():
     bucket = conn.get_bucket(RAW_JSON_REDDIT_BUCKET)
 
     def addTitleURL(cmtTuple):
-        onePst = bcURL.value[randint(0, 999)]
+        # 150,000/ 3000 = avg 50 comments/topic
+        onePst = bcURL.value[randint(0, 3000)]
         return  cmtTuple + (onePst[0], onePst[1]) # adding title and url
 
 
