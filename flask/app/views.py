@@ -78,8 +78,10 @@ def getPostOfUser(user):
     urls = getRedisList(r5, user)
     rtimeList = []
     for url in urls:
-        title = getRedisList(r8, url)
+        title = r8.get(url)
         rtimeList.append((user, url, title))
+
+    #pp.pprint(rtimeList)
     postList = list(set(batchList).union(set(rtimeList[:5])))
     return postList
 
@@ -149,17 +151,19 @@ def getDummy():
     return json_data
 
 
-#json_data = getRecommondationPost('S7evyn')
-#pp.pprint(json_data)                
+if ONLINE:
+    @app.route('/')
+    @app.route('/index')
+    def index():
+        return render_template("index.html")
+    
+    @app.route('/show')
+    def showData():
+        user = request.args.get("user")
+        json_data = getRecommondationPost(user)
+        return render_template("showData.html", user=user, json_data=json_data)
+else:
+    json_data = getRecommondationPost('S7evyn')
+    pp.pprint(json_data)                
 
-@app.route('/')
-@app.route('/index')
-def index():
-    return render_template("index.html")
-
-@app.route('/show')
-def showData():
-    user = request.args.get("user")
-    json_data = getRecommondationPost(user)
-    return render_template("showData.html", user=user, json_data=json_data)
 

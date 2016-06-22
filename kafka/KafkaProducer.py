@@ -1,8 +1,6 @@
 import sys
-from kafka.client import SimpleClient
-from kafka.producer import KeyedProducer
 from ConfigParser import SafeConfigParser
-from kafka import HashedPartitioner
+from kafka import KafkaProducer
 
 from time import sleep
 import json
@@ -11,14 +9,15 @@ from threading import Thread
 
 REWIND = True
 SMALL_STREAM = True
-FAST_INJECT = True
+FAST_INJECT = False
+MSG_PER_SEC = 900
 
 if (SMALL_STREAM):
-    KAFKA_TOPIC = 'reddit_small'
+    KAFKA_TOPIC = 'reddit1'
 else:
     KAFKA_TOPIC = 'reddit'
 
-class KafkaProducer(object):
+class producer(object):
     def __init__(self, addr, conf_file):
         self.parser = SafeConfigParser()
         self.parser.read(conf_file)
@@ -26,11 +25,11 @@ class KafkaProducer(object):
         self.zipdb_file  = self.parser.get('hotred_tool', 'ZIP_DB_FILE') 
         self.nHours      = float(self.parser.get('hotred_tool', 'DATA_LAST'))
 
-        #self.client = KafkaClient(addr)
-        self.client = SimpleClient(addr)
-        #self.producer = KeyedProducer(self.client, async=True, batch_send_every_n=500, batch_send=True)
-        # HashedPartitioner is default
-        self.producer = KeyedProducer(self.client, partitioner=HashedPartitioner)
+        self.producer = KafkaProducer(bootstrap_servers=[addr + ":9092"],
+                                      value_serializer=lambda v: json.dumps(v).encode('utf-8'),
+                                      acks=0,
+                                      linger_ms=500)
+
 
         self.timeCntInSec = long(0)  #global variable, to sync produer thread
 
@@ -41,7 +40,7 @@ class KafkaProducer(object):
         pp = pprint.PrettyPrinter(indent=4)
 
         if (SMALL_STREAM):
-            streamInfileName = self.install_dir + '/data/comment_small_100_persec'
+            streamInfileName = self.install_dir + '/data/comment_small_10000_persec'
         else:
             streamInfileName = self.install_dir + '/' + self.zipdb_file
 
@@ -54,14 +53,10 @@ class KafkaProducer(object):
             while True:
                 oneSecData = json.loads(lines[secondCnt%nSecond])
                 for oneMsg in oneSecData:
-                    user = bytes(oneMsg['author'])
-                    msg = json.dumps(oneMsg)
-
                     if msg_cnt % 5000 == 0:
                         print "Sent " + str(msg_cnt) + " messages to Kafka"
 
-                    # use user ID as partition key for better spark channel banlance
-                    self.producer.send_message(KAFKA_TOPIC, user, msg)
+                    self.producer.send(KAFKA_TOPIC, oneMsg)
                     msg_cnt += 1
             
                 secondCnt += 1
@@ -74,15 +69,12 @@ class KafkaProducer(object):
                 for line in data_file:
                     data = json.loads(line)
                     for i in range(len(data)):
-                        user = bytes(data[i]['author'])
-                        msg = json.dumps(data[i])
-
+                        if i >= MSG_PER_SEC: # up to 10,000
+                            break
                         if msg_cnt % 5000 == 0:
                             print "Sent " + str(msg_cnt) + " messages to Kafka"
 
-                        # use user ID as partition key for better spark channel banlance
-                        self.producer.send(KAFKA_TOPIC, user, msg)
-                        #pp.pprint(msg)
+                        self.producer.send(KAFKA_TOPIC, data[i])
                         msg_cnt += 1
                         #print "Sent Total " + str(msg_cnt) + " messages to Kafka"
                     
@@ -116,5 +108,5 @@ if __name__ == "__main__":
     args = sys.argv
     conf_file = str(args[1])
     ip_addr = str(args[2])
-    prod = KafkaProducer(ip_addr, conf_file)
+    prod = producer(ip_addr, conf_file)
     prod.syncProduceMsgs() 

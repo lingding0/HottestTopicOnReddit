@@ -24,14 +24,14 @@ def extractJsonToList(filename):
             result.append(json_data)
     return result
 
-submittions = extractJsonToList("/home/ubuntu/Downloads/submittion_1000.txt")
+submittions = extractJsonToList("../data/submittion_10000.txt")
 
 if (smallFile):
-    pstRandRange = 300-1
+    pstRandRange = 3000-1 # 50 comments/topic
     cmtRandRange = 150000-1
     comments  = extractJsonToList("/home/ubuntu/Downloads/comments_1000000.txt")
-    outFileName  = "../data/comment_small_100_persec"
-    throughputPerSec = 1000
+    outFileName  = "../data/comment_small_10000_persec"
+    throughputPerSec = 10000
 else:
     pstRandRange = 1000-1
     cmtRandRange = 1000000-1
