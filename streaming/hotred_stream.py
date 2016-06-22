@@ -30,8 +30,6 @@ CHECKPOINT_DIR = 'hdfs://' + HDFS_NAME_NODE + ':9000/usr/checkpoint/'
 
 conn = S3Connection(AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
 
-
-
 if (SMALL_STREAM):
     KAFKA_TOPIC = 'reddit1'
 else:
@@ -51,6 +49,17 @@ SPARK_MASTER = 'spark://ip-172-31-0-118:7077'
 
 kafka_dns  = KAFKA_NODE1
 kafka_port = "2181"
+
+
+pp = pprint.PrettyPrinter(indent=4)
+
+def flushRedis(dbID):
+    r = redis.StrictRedis(host=REDIS_NODE, port=6379, db=dbID)
+    r.flushdb() # clear
+
+if USE_REDIS:
+    for dbID in range(4,10):
+        flushRedis(dbID) # clear all realtime table
 
 
 #def readBatchLayer(dbID):
@@ -332,6 +341,7 @@ kafkaStream = KafkaUtils.createDirectStream(ssc,  # stream context
                                               kafkaParams) # broker list, auto connect to each partition
 
 jsonData  = kafkaStream.map(getJson).filter(lambda x: x[0] != '[deleted]')
+#jsonData.pprint()
 
 #jsonData.foreachRDD(lambda rdd: rdd.foreachPartition(insert_user_table))
 url2title = jsonData.map(lambda x: (x[6], x[7]))
@@ -342,9 +352,9 @@ url2title.foreachRDD(lambda rdd: rdd.foreachPartition(insert_realtime_post_title
 post2user = jsonData.map(lambda x: (x[6], x[0]))
 post2user.cache()
 
-post2user.foreachRDD(lambda rdd: rdd.foreachPartition(insert_realtime_post_user))
-#post2user.pprint()
+#post2user.foreachRDD(lambda rdd: rdd.foreachPartition(insert_realtime_post_user))
 
+#post2user.pprint()
 # realtime has 3 new edge sources
 # 1. relationship between new posts that is in this micro-batch
 newEdgesByNewPosts = post2user.join(post2user)\
