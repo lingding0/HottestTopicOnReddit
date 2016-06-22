@@ -1,5 +1,5 @@
 
-#ONLINE = False
+ONLINE = False
 ONLINE = True
 
 from flask import render_template, request
@@ -113,11 +113,13 @@ def getRecommondationPost(user):
     for fellowUser in fellowUsers:
         fellowPosts.append(getPostOfUser(fellowUser)) # get a list of posts for the fellow user
     userPost    = getPostOfUser(user)       # get a list of posts for the login user
+    userURLs    = [post[1] for post in userPost]
 
     recommendation = []
     for postGrp in fellowPosts:
         for post in postGrp:
-            if post[1] not in userPost[1]: # compare URL only
+            #pp.pprint(userPost)
+            if post != None and post[1] not in userURLs: # compare URL only
                  oneRecommend = {}
                  oneRecommend['otherUser'] = post[0]
                  oneRecommend['URL']       = post[1]
@@ -163,7 +165,7 @@ if ONLINE:
         json_data = getRecommondationPost(user)
         return render_template("showData.html", user=user, json_data=json_data)
 else:
-    json_data = getRecommondationPost('S7evyn')
+    json_data = getRecommondationPost('FireBomber')
     pp.pprint(json_data)                
 
 
