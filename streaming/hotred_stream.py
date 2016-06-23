@@ -17,7 +17,8 @@ import json
 
 USE_CASSANDRA = False
 USE_REDIS = True
-PRE_LOAD_GRAPH = False
+PRE_LOAD_GRAPH = True
+USE_CHPT = False
 
 SMALL_STREAM = True
 
@@ -45,7 +46,7 @@ KAFKA_NODE1 = 'ec2-52-41-2-110.us-west-2.compute.amazonaws.com'
 KAFKA_NODE2 = 'ec2-52-32-133-95.us-west-2.compute.amazonaws.com'
 KAFKA_NODE3 = 'ec2-52-34-129-5.us-west-2.compute.amazonaws.com'
 
-SPARK_MASTER = 'spark://ip-172-31-0-118:7077'
+SPARK_MASTER = 'spark://ip-172-31-0-116:7077'
 
 kafka_dns  = KAFKA_NODE1
 kafka_port = "2181"
@@ -62,31 +63,11 @@ if USE_REDIS:
         flushRedis(dbID) # clear all realtime table
 
 
-#def readBatchLayer(dbID):
-#    pairs = []
-#    r = redis.StrictRedis(host=REDIS_NODE, port=6379, db=dbID)
-#    for key in r.keys():
-#        valueList = r.get(key).split(' ')
-#        if (valueList == None):
-#            continue
-#        else:
-#            for value in valueList:
-#                pairs.append((key, value))
-#    return pairs
-#
-#if PRE_LOAD_GRAPH:
-#    batchUserPost_sc = SparkContext(SPARK_MASTER, appName="batchUserPost")
-#    batchPostUser_sc = SparkContext(SPARK_MASTER, appName="batchPostUser")
-#    batchUserPostRDD = batchUserPost_sc.parallelize(readBatchLayer(1)) # read user - post table
-#    batchPostUserRDD = batchPostUser_sc.parallelize(readBatchLayer(2)) # read post - user table
-#    batchUserPostRDD.cache()
-#    batchPostUserRDD.cache()
-
 def readBatchLayer(dbID):
     keyValuePairs = {}
     r = redis.StrictRedis(host=REDIS_NODE, port=6379, db=dbID)
     for key in r.keys():
-        valueList = r.get(key).split(' ')
+        valueList = r.lrange(key, 0, -1)
         if (valueList == None):
             continue
         keyValuePairs[key] = valueList
@@ -97,15 +78,14 @@ if PRE_LOAD_GRAPH:
     batchPostUserDict = readBatchLayer(2) # read post - user table
 
 
-#def ts2date(curTime):
-#    return time.strftime("%Y-%m-%d", time.localtime(int(curTime)))
-
 def readUserPostsFromRDD(user, batchUserPostDict, batchPostUserDict): # read from RDD, no DB access
-    postList = batchUserPostDict[user]
-    if postList == None:
+    if user not in batchUserPostDict.keys():
         return ()
+    postList = batchUserPostDict[user]
     newEdges = []
     for post in postList:
+        if post not in batchPostUserDict.keys():
+            continue
         for fellowUser in batchPostUserDict[post]:
             newEdges.append((user, fellowUser))
 
@@ -118,14 +98,14 @@ def readUserPostsFromDB(user): # requires quite some DB access
     if (USE_REDIS):
             r1 = redis.StrictRedis(host=REDIS_NODE, port=6379, db=1) # find post by user on batch layer
             r2 = redis.StrictRedis(host=REDIS_NODE, port=6379, db=2) # find user by post on batch layer
-            postList = r1.get(user)
+            postList = r1.lrange(user, 0, -1)
             if postList == None:
                 return ()
-            for postID in postList.split(' '):
-                userSubGrp = r2.get(postID)
+            for postID in postList:
+                userSubGrp = r2.lrange(postID, 0, -1)
                 if (userSubGrp == None):
                     continue
-                if (user in userSubGrp.split(' ')):
+                if user in userSubGrp:
                     continue # only add fellow users who are not commented the post before
                 fellowUsers.append(userSubGrp)
 
@@ -162,17 +142,17 @@ def readUserPostsRealDB(user): # requires quite some realtime DB access
     if (USE_REDIS):
             r5 = redis.StrictRedis(host=REDIS_NODE, port=6379, db=5) # find post by user on realtime layer
             r6 = redis.StrictRedis(host=REDIS_NODE, port=6379, db=6) # find user by post on realtime layer
-            postList = r5.get(user)
+            postList = r5.lrange(user, 0, -1)
             if postList == None:
                 return ()
 
-            for post in postList.split(' '):
-                userSubGrp = r6.get(post)
+            for post in postList:
+                userSubGrp = r6.lrange(post, 0, -1)
                 if userSubGrp == None:
                     continue
-                if (user in userSubGrp.split(' ')):
+                if user in userSubGrp:
                     continue # only add fellow users who are not commented the post before
-                fellowUsers.append(userSubGrp.split(' '))
+                fellowUsers.append(userSubGrp)
 
             for userGrp in fellowUsers:
                 for fellowUser in userGrp:
@@ -240,11 +220,7 @@ def agg2graph(db, key1, value, key2):
 
 
 def agg2Redis(db, key, value):
-    oldValue = db.get(key);
-    if (oldValue == None):
-        db.set(key, value.encode('utf-8'))
-    else:
-        db.set(key, oldValue + ' ' + value.encode('utf-8'))
+    db.rpush(key, value)
 
 
 def insert_realtime_post_title(rdd):
@@ -305,28 +281,29 @@ def makeAscOrder(keyValuesPair):
 
 
 if PRE_LOAD_GRAPH:
-    def createContext():
+    if USE_CHPT:
+        def createContext():
+            uBATCH_INTERVAL = 10
+            sc = SparkContext(SPARK_MASTER, appName="StreamingKafka")
+            sc.broadcast(batchUserPostDict)
+            sc.broadcast(batchPostUserDict)
+            #sc = SparkContext("local[*]", appName="StreamingKafka")
+            # streaming batch interval of 5 sec first, and reduce later to 1 sec or lower
+            ssc = StreamingContext(sc, uBATCH_INTERVAL)
+            ssc.checkpoint(CHECKPOINT_DIR)   # set checkpoint directory in HDFS
+            #ssc.checkpoint(10 * uBATCH_INTERVAL)
+            return ssc
+
+            ssc = StreamingContext.getOrCreate(CHECKPOINT_DIR, createContext)
+            #ssc = StreamingContext.getOrCreate(CHECKPOINT_DIR,
+            #                                   lambda: createContext(host, int(port), output))
+    else:    
         uBATCH_INTERVAL = 10
         sc = SparkContext(SPARK_MASTER, appName="StreamingKafka")
-        #sc.broadcast(batchUserPostDict)
-        #sc.broadcast(batchPostUserDict)
-        #sc = SparkContext("local[*]", appName="StreamingKafka")
-        # streaming batch interval of 5 sec first, and reduce later to 1 sec or lower
+        sc.broadcast(batchUserPostDict)
+        sc.broadcast(batchPostUserDict)
         ssc = StreamingContext(sc, uBATCH_INTERVAL)
-        ssc.checkpoint(CHECKPOINT_DIR)   # set checkpoint directory in HDFS
-        #ssc.checkpoint(10 * uBATCH_INTERVAL)
-        return ssc
-    
-    #uBATCH_INTERVAL = 10
-    #sc = SparkContext(SPARK_MASTER, appName="StreamingKafka")
-    #sc.broadcast(batchUserPostDict)
-    #sc.broadcast(batchPostUserDict)
-    #ssc = StreamingContext(sc, uBATCH_INTERVAL)
-    #ssc.checkpoint(CHECKPOINT_DIR)   # set checkpoint directory in S3
-    
-    ssc = StreamingContext.getOrCreate(CHECKPOINT_DIR, createContext)
-    #ssc = StreamingContext.getOrCreate(CHECKPOINT_DIR,
-    #                                   lambda: createContext(host, int(port), output))
+        
 else:
     uBATCH_INTERVAL = 10
     sc = SparkContext(SPARK_MASTER, appName="StreamingKafka")
@@ -368,7 +345,7 @@ newEdgesByNewPosts = post2user.join(post2user)\
 # 2. new posts that has relationship with batch layer posts
 if PRE_LOAD_GRAPH:
     newEdgesByBatchPosts = post2user.map(lambda x: x[1])\
-                                  .flatMap(readUserPostsFromRDD)\
+                                  .flatMap(lambda x: readUserPostsFromRDD(x, batchUserPostDict, batchPostUserDict))\
                                   .map(makeAscOrder)\
                                   .map(lambda x: (x, 1))
 #else:
@@ -381,13 +358,16 @@ if PRE_LOAD_GRAPH:
 
 # 3. new posts that has relationship with realtime layer earlier posts
 if PRE_LOAD_GRAPH:
-    def updateRealTimeGraph(newValues, runningCount):
-        if runningCount is None:
-           runningCount = 0
-        return sum(newValues, runningCount)
+    if USE_CHPT:
+        def updateRealTimeGraph(newValues, runningCount):
+            if runningCount is None:
+               runningCount = 0
+            return sum(newValues, runningCount)
 
-    realtimeGraphNewEdges = newEdgesByNewPosts.updateStateByKey(updateRealTimeGraph)
-
+        realtimeGraphNewEdges = newEdgesByNewPosts.updateStateByKey(updateRealTimeGraph)
+    else:
+        realtimeGraphNewEdges = newEdgesByNewPosts
+        
 #else:
 #    newEdgesByRtimePosts = post2user.map(lambda x: x[1])\
 #                                  .flatMap(readUserPostsRealDB)\
@@ -401,9 +381,9 @@ if PRE_LOAD_GRAPH:
 if PRE_LOAD_GRAPH:
     allCreatedEdges = realtimeGraphNewEdges.union(newEdgesByBatchPosts)
 else:
-    allCreatedEdges = newEdgesByNewPosts
-#    allCreatedEdges = newEdgesByNewPosts.union(newEdgesByRtimePosts).union(newEdgesByBatchPosts)
-# format ((user1, user2), commonPost)
+#    allCreatedEdges = newEdgesByNewPosts
+    allCreatedEdges = newEdgesByNewPosts.union(newEdgesByRtimePosts).union(newEdgesByBatchPosts)
+    # format ((user1, user2), commonPost)
 #allCreatedEdges.pprint()
 
 newEdges  = allCreatedEdges.reduceByKey(lambda x, y: x+y)\
