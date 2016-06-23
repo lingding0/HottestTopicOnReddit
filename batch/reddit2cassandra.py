@@ -40,12 +40,7 @@ RAW_JSON_REDDIT_BUCKET = "reddit-comments"
 
 
 def agg2Redis(db, key, value):
-    oldValue = db.get(key);
-    if (oldValue == None):
-        db.set(key, value.encode('utf-8'))
-    else:
-        db.set(key, oldValue + ' ' + value.encode('utf-8'))
-
+    db.rpush(key, value)
 
 def extractJsonToList(filename):
     result = []
@@ -69,10 +64,13 @@ def insert_into_cassandra(partition):
             session = cluster.connect(KEY_SPACE)
             user_post_stmt = session.prepare("INSERT INTO user_post_table (user, created_utc, url, subreddit, title, year_month, body) VALUES (?,?,?,?,?,?,?)")
             post_user_stmt = session.prepare("INSERT INTO post_user_table (url, user, created_utc, subreddit, title, year_month, body) VALUES (?, ?, ?, ?, ?, ?, ?)")
+
         for item in partition:
             if (USE_REDIS):
                 agg2Redis(r1, item[0], item[10])
                 agg2Redis(r2, item[10], item[0])
+
+
             if (USE_CASSANDRA):
                                                 # author  created_utc            url     subreddit  id   year_month body
                 session.execute(user_post_stmt, (item[0], long(item[2]) * 1000, item[10], item[3], item[9], item[1], item[5]))
