@@ -10,7 +10,7 @@ from threading import Thread
 REWIND = True
 SMALL_STREAM = True
 FAST_INJECT = False
-MSG_PER_SEC = 900
+MSG_PER_SEC = 1000
 
 if (SMALL_STREAM):
     KAFKA_TOPIC = 'reddit1'
