@@ -63,11 +63,7 @@ def getTopAccUsers(dict1, dict2):
 
 
 def getRedisList(db, key):
-    value = db.get(key)
-    if value == None:
-        return []
-    else:
-        return value.split(' ')
+    return db.lrange(key, 0, -1)
 
 
 def getPostOfUser(user):
@@ -78,7 +74,7 @@ def getPostOfUser(user):
     urls = getRedisList(r5, user)
     rtimeList = []
     for url in urls:
-        title = r8.get(url)
+        title = r8.get(url) # one on one mapping
         rtimeList.append((user, url, title))
 
     #pp.pprint(rtimeList)
@@ -165,7 +161,7 @@ if ONLINE:
         json_data = getRecommondationPost(user)
         return render_template("showData.html", user=user, json_data=json_data)
 else:
-    json_data = getRecommondationPost('FireBomber')
+    json_data = getRecommondationPost('stunt_penguin')
     pp.pprint(json_data)                
 
 
