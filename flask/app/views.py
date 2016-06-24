@@ -9,6 +9,7 @@ if ONLINE:
     from app import app
 
 from cassandra.cluster import Cluster
+import json
 import Queue as Q  # ver. < 3.0
 import redis
 from random import randint
@@ -77,7 +78,7 @@ def getRandomRecommendation():
     for i in range(6):
         oneRec = batchList[randint(0, len(batchList))]
         oneRecommend = {}
-        oneRecommend['otherUser'] = oneRec[0]
+        oneRecommend['otherUser'] = oneRec[0] + ' (rand)'
         oneRecommend['URL']       = oneRec[1]
         oneRecommend['title']     = oneRec[2]
         
@@ -173,6 +174,78 @@ def getDummy():
         json_data.append(dummy)
     return json_data
 
+def getPairString(user1, user2):
+    pair = [user1, user2]
+    pair.sort() # make uniq edge
+    return ' '.join(pair) # concatanate with space
+
+
+def get3layerNodes(user):
+    layer1 = session.execute("SELECT * FROM user_graph WHERE user1=%s", parameters=[user])
+    layer1dict = {} # find wight later on
+    layer2dict = {}
+
+    layer1users = []
+    for row in layer1:
+        layer1dict[row.user2] = row.ncommonposts
+        layer1users.append(row.user2)
+
+    
+    l1tol2dict = {}
+    for layer1user in layer1users:
+        layer2 = session.execute("SELECT * FROM user_graph WHERE user1=%s", parameters=[layer1user])
+        layer2users = []
+        for row in layer2:
+            layer2dict[getPairString(layer1user, row.user2)] = row.ncommonposts
+            layer2users.append(row.user2)
+        l1tol2dict[layer1user] = layer2users
+
+    # build up json data structure
+    # build up nodes
+    assignedNodes = [] # one user only has one node assigned
+    assignedNodes.append(user);
+
+    jsonNodes = []
+    centerNode = {"name":user,"group":0}
+    jsonNodes.append(centerNode)
+
+    # BFS layer by layer, layer1
+    for layer1user in layer1users:
+        if layer1user in assignedNodes:
+            continue
+        jsonNodes.append({"name":layer1user,"group":1})
+        assignedNodes.append(layer1user)
+
+    # BFS layer by layer, layer2
+    for layer1user in layer1users:
+        for layer2user in l1tol2dict[layer1user]:
+            if layer2user in assignedNodes:
+                continue
+            jsonNodes.append({"name":layer2user,"group":2})
+            assignedNodes.append(layer2user)
+
+
+    # build up edges
+    usedEdges = set()
+    jsonEdges = []
+    for layer1user in layer1users:
+        usedEdge = getPairString(user, layer1user)
+        if usedEdge in usedEdges:
+            continue
+        jsonEdges.append({"source":assignedNodes.index(user),"target":assignedNodes.index(layer1user),"value":layer1dict[layer1user]})
+        usedEdges.add(usedEdge)
+
+    # layer1 to layer2 edges
+    for layer1user in layer1users:
+        for layer2user in l1tol2dict[layer1user]:
+            usedEdge = getPairString(layer1user, layer2user)
+            if usedEdge in usedEdges:
+                continue
+            jsonEdges.append({"source":assignedNodes.index(layer1user),"target":assignedNodes.index(layer2user),"value":layer2dict[usedEdge]})
+            usedEdges.add(usedEdge)
+
+    return {"nodes":jsonNodes, "links":jsonEdges}
+
 
 if ONLINE:
     @app.route('/')
@@ -185,8 +258,19 @@ if ONLINE:
         user = request.args.get("user")
         json_data = getRecommondationPost(user)
         return render_template("showData.html", user=user, json_data=json_data)
+
+    #@app.route('/graph',methods=['POST'])
+    @app.route('/graph')
+    def showGraph():
+        user = request.args.get("user")
+        json_data = get3layerNodes(user)
+        #return render_template("showGraph.html", user=user, nds = json.dumps(json_data["nodes"]), lnk = json.dumps(json_data["links"]))
+        return render_template("showGraph.html", nds = json.dumps(json_data["nodes"]), lnk = json.dumps(json_data["links"]))
+
 else:
-    json_data = getRecommondationPost('stunt_penguin')
-    pp.pprint(json_data)                
+    recommend = getRecommondationPost('kirkt')
+    graph = get3layerNodes('kirkt')
+    #pp.pprint(recommend)                
+    pp.pprint(graph)                
 
 

@@ -1,0 +1,63 @@
+
+{% extends "layout.html" %}
+{% block content %}
+<h1>A Retweet graph (an estimate):</h1>
+<script src="//d3js.org/d3.v3.min.js"></script>
+<script>
+
+var width = 840,
+    height = 680;
+//debugger;
+var nodes = {{nds | safe}};
+//console.log (nodes);
+
+var links = {{lnk | safe}};
+//console.log(links);
+
+//var nodes = JSON.parse(n);
+//var links = JSON.parse(l);
+//var nodes = [
+  //  { x:   width/3, y: height/2 },
+   // { x: 2*width/3, y: height/2 }
+//];
+//var links = [
+  //  { source: 0, target: 1 }
+//];
+var svg = d3.select('body').append('svg')
+    .attr('width', width)
+    .attr('height', height);
+var color = d3.scale.category20();
+var force = d3.layout.force()
+    .charge(-50)
+    .size([width, height])
+    .nodes(nodes)
+    .links(links);
+
+force.linkDistance(30);
+
+var link = svg.selectAll('.link')
+    .data(links)
+    .enter().append('line')
+    .attr('class', 'link')
+    .style("stroke-width", function(d) { return Math.sqrt(d.value); });
+var node = svg.selectAll('.node')
+    .data(nodes)
+    .enter().append('circle')
+    .style("fill", function(d) { return color(d.color); }) 
+    .attr('class', 'node')
+    .call(force.drag);
+node.append("title")
+      .text(function(d) { return d.screen_name; });
+force.on('tick', function() {
+node.attr('r', 5)
+        .attr('cx', function(d) { return d.x; })
+        .attr('cy', function(d) { return d.y; });
+ link.attr('x1', function(d) { return d.source.x; })
+        .attr('y1', function(d) { return d.source.y; })
+        .attr('x2', function(d) { return d.target.x; })
+        .attr('y2', function(d) { return d.target.y; });
+
+});
+force.start();
+</script>
+{% endblock %}
