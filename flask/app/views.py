@@ -39,6 +39,9 @@ def addPriorityQ(q, weight, user):
 
 def getTopAccUsers(dict1, dict2):
     
+    if dict1 == None and dict2 == None:
+        return []
+
     q = Q.PriorityQueue()
     d = {}
 
@@ -64,6 +67,23 @@ def getTopAccUsers(dict1, dict2):
 
 def getRedisList(db, key):
     return db.lrange(key, 0, -1)
+
+
+def getRandomRecommendation():
+    randomPosts = session.execute("SELECT * FROM user_post_table LIMIT 500")
+    batchList = [(user, row.url, row.body) for row in randomPosts]
+
+    recommendation = []
+    for i in range(6):
+        oneRec = batchList[randint(0, len(batchList))]
+        oneRecommend = {}
+        oneRecommend['otherUser'] = oneRec[0]
+        oneRecommend['URL']       = oneRec[1]
+        oneRecommend['title']     = oneRec[2]
+        
+        recommendation.append(oneRecommend)  
+
+    return recommendation
 
 
 def getPostOfUser(user):
@@ -105,9 +125,14 @@ def getStrongestFellowUser(user):
 
 def getRecommondationPost(user):
     fellowUsers = getStrongestFellowUser(user) # top N of the fellow users
+
+    if len(fellowUsers) == 0:
+        return getRandomRecommendation()
+
     fellowPosts = []
     for fellowUser in fellowUsers:
         fellowPosts.append(getPostOfUser(fellowUser)) # get a list of posts for the fellow user
+
     userPost    = getPostOfUser(user)       # get a list of posts for the login user
     userURLs    = [post[1] for post in userPost]
 
@@ -123,7 +148,7 @@ def getRecommondationPost(user):
             
                  recommendation.append(oneRecommend)  
                  break
-    
+   
     return recommendation
 
 
