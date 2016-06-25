@@ -72,13 +72,13 @@ def getRedisList(db, key):
 
 def getRandomRecommendation():
     randomPosts = session.execute("SELECT * FROM user_post_table LIMIT 500")
-    batchList = [(user, row.url, row.body) for row in randomPosts]
+    batchList = [(row.user, row.url, row.body) for row in randomPosts]
 
     recommendation = []
     for i in range(6):
         oneRec = batchList[randint(0, len(batchList))]
         oneRecommend = {}
-        oneRecommend['otherUser'] = oneRec[0] + ' (rand)'
+        oneRecommend['otherUser'] = oneRec[0] + '*'
         oneRecommend['URL']       = oneRec[1]
         oneRecommend['title']     = oneRec[2]
         
@@ -257,20 +257,20 @@ if ONLINE:
     def showData():
         user = request.args.get("user")
         json_data = getRecommondationPost(user)
-        return render_template("showData.html", user=user, json_data=json_data)
+        graph_data = get3layerNodes(user)
+        return render_template("showData.html", user=user, json_data=json_data, graph_data=graph_data)
 
-    #@app.route('/graph',methods=['POST'])
-    @app.route('/graph')
-    def showGraph():
-        user = request.args.get("user")
-        json_data = get3layerNodes(user)
-        #return render_template("showGraph.html", user=user, nds = json.dumps(json_data["nodes"]), lnk = json.dumps(json_data["links"]))
-        return render_template("showGraph.html", nds = json.dumps(json_data["nodes"]), lnk = json.dumps(json_data["links"]))
+#    @app.route('/graph')
+#    def showGraph():
+#        user = request.args.get("user")
+#        graph_data = get3layerNodes(user)
+#        #pp.pprint(graph_data)                
+#        return render_template("showGraph.html", graph_data=graph_data)
 
 else:
-    recommend = getRecommondationPost('kirkt')
-    graph = get3layerNodes('kirkt')
-    #pp.pprint(recommend)                
-    pp.pprint(graph)                
+    recommend = getRecommondationPost('adkdkdkdk')
+    #graph = get3layerNodes('kirkt')
+    pp.pprint(recommend)                
+    #pp.pprint(graph)                
 
 
