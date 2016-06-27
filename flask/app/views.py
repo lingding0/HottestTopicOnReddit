@@ -256,8 +256,13 @@ if ONLINE:
     @app.route('/show')
     def showData():
         user = request.args.get("user")
-        json_data = getRecommondationPost(user)
-        graph_data = get3layerNodes(user)
+        pp.pprint(user)
+        if user == "":
+            json_data  = getRandomRecommendation()
+            graph_data = {"nodes":[], "links":[]}
+        else:
+            json_data  = getRecommondationPost(user)
+            graph_data = get3layerNodes(user)
         return render_template("showData.html", user=user, json_data=json_data, graph_data=graph_data)
 
 #    @app.route('/graph')
