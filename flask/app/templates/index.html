@@ -15,6 +15,15 @@
 			.showdata {
 				width: 50%;
 			}
+
+			.showsearch {
+				margin-bottom: 20px;
+			}
+
+                        a {
+                               color: black;
+                               font-weight: 500;
+                        }
 			
 		</style>
   		<script src="{{ url_for('static', filename='bootstrap/js/bootstrap.min.js') }}"></script>
@@ -23,7 +32,8 @@
 		<div class="container">
 			<h1>Hottest Topic on Reddit</h1>
 			<h3>Real Time Reddit News Feed Search</h3>
-			<section>
+			<section class="showsearch">
+                                
 				<form action="/show" method="get">
 					<div class="form-group">
 						<label for="usertimestamp">User name, please:</label>
@@ -47,6 +57,16 @@
 				</form>
 			</section>
 -->
+			<section class="showlinks"> 
+                            <p>
+                            <a href="/slides">See Slidedeck</a>
+                            </p>
+                            <p>
+                            <a href="/slidesBackup">See SlidedeckBackup</a>
+                            </p>
+			</section>
+
+
 		</div>
 	</body>
 </html>

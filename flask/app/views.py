@@ -265,6 +265,15 @@ if ONLINE:
             graph_data = get3layerNodes(user)
         return render_template("showData.html", user=user, json_data=json_data, graph_data=graph_data)
 
+    @app.route('/slides')
+    def slides():
+        return render_template("slides.html")
+    
+    @app.route('/slidesBackup')
+    def slidesBackup():
+        return render_template("slidesBackup.html")
+
+
 #    @app.route('/graph')
 #    def showGraph():
 #        user = request.args.get("user")
