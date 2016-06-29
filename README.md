@@ -17,14 +17,14 @@ Sweet Reddit is a tool to suggest personalized real time Reddit topics to users.
 Sweet Reddit permits users to find real-time Reddit topics that may best fit a user's personal preference. Besed on users historical comments, a list of suggestion will be provided to a user. Also, a user relationship graph is displayed for the user ID.
 
 <p align="center">
-  <img src="/images/screenShot.png" width="450"/>
+  <img src="/images/screenShot.png" width="900"/>
 </p>
 
 # Sweet Reddit Approach
 Sweet Reddit uses Dec. 2015 comments in JSON format. User graph is been processed in batch layer. Real-time data stream is synthetically generated. Real-time data stream affects user's final suggestion.
 
 <p align="center">
-  <img src="/images/pipeline.png" width="450"/>
+  <img src="/images/pipeline.png" width="900"/>
 </p>
 
 
