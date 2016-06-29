@@ -83,6 +83,7 @@ sbt library dependencies:
   
 ## Front end query
 Four steps when front end query a suggestion of a user ID:
+
 1. Find top 6 closest (highest edge scores) fellow users from user graph, aggregating both batch layer and real time layer.
 2. For each fellow user, find all posts each of the fellow users commented during past one month.
 3. Send back the posts that querying user ID has not commented on yet.
