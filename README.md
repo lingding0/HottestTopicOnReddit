@@ -1,20 +1,19 @@
 # Sweet Reddit
 ======================================
-
-## Personalized Real-time Reddit topic suggestion
+## Personalized real-time reddit topic suggestion
 [www.leo-ding.com](http://www.leo-ding.com)
 
-Sweet Reddit is a tool to suggest personalized real time Reddit topics to users. The suggestion is based on users' commenting history using the following tecknologies:
+Sweet Reddit is a tool to suggest personalized real time reddit posts to users. The suggestion is based on users' commenting history using the following technologies:
 - Amazon S3
 - Apache Kafka 0.8.2.1
-- Spark
-- Spark Streaming
+- Apache Spark
+- Apache Spark Streaming
 - Apache Cassandra
 - Redis
 - Flask with D3, Bootstrap and Ajax
 
 # What Sweet Reddit Provides:
-Sweet Reddit permits users to find real-time Reddit topics that may best fit a user's personal preference. Besed on users historical comments, a list of suggestion will be provided to a user. Also, a user relationship graph is displayed for the user ID.
+Sweet Reddit permits users to find real-time reddit posts that may best fit a user's personal preference. Based on users historical comments, a list of suggestion will be provided to a user. Also, a user relationship graph is displayed centered by the user's ID.
 
 <p align="center">
   <img src="/images/screenShot.png" width="900"/>
@@ -29,7 +28,7 @@ Sweet Reddit uses Dec. 2015 comments in JSON format. User graph is been processe
 
 
 ## Data Synethesis
-Real-time data stream is synthesized based on the Dec. 2015 user pool (2.8 Million distinct users), with random posts in the same pool. Post-Comment rate is 30, which is 3 times of average Reddit post-comment ratio. Higher post-comment ration leads to more complex graph structure, which is used to stress real time layer performance.
+Real-time data stream is synthesized based on the Dec. 2015 user pool (2.8 Million distinct users), with random posts in the same pool. Post-comment rate is 30, which is 3 times of average reddit post-comment ratio. Higher post-comment ration leads to more complex graph structure, which is used to stress real time layer performance.
 
 JSON message fields:
 - url:          URL of the original post
@@ -82,6 +81,12 @@ sbt library dependencies:
 - "org.apache.spark" % "spark-streaming_2.10" % "1.2.0" % "provided"
 - "org.apache.spark" % "spark-streaming-kafka_2.10" % "1.2.0"
   
+## Front end query
+Four steps when front end query a suggestion of a user ID:
+1. Find top 6 closest (highest edge scores) fellow users from user graph, aggregating both batch layer and real time layer.
+2. For each fellow user, find all posts each of the fellow users commented during past one month.
+3. Send back the posts that querying user ID has not commented on yet.
+
 ## Database Schema
 Tables:
 
