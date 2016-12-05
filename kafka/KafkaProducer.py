@@ -61,7 +61,7 @@ class producer(object):
             
                 secondCnt += 1
                 while (secondCnt >= self.timeCntInSec):
-                    sleep(0.05) # look at other thread clock signal
+                    sleep(0.05) # look at other thread clock signal  
       
         else: 
 
@@ -80,7 +80,7 @@ class producer(object):
                     
                     secondCnt += 1
                     if (REWIND and secondCnt % nSecond == 0):
-                        data_file.seek(0, 0) # rewind and start from beginning
+                        data_file.seek(0, 0) # rewind and start from beginning   
                     while (secondCnt >= self.timeCntInSec):
                         sleep(0.05) # look at other thread clock signal
 

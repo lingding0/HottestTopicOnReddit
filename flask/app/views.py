@@ -132,9 +132,9 @@ def getRecommondationPost(user):
 
     fellowPosts = []
     for fellowUser in fellowUsers:
-        fellowPosts.append(getPostOfUser(fellowUser)) # get a list of posts for the fellow user
+        fellowPosts.append(getPostOfUser(fellowUser)) # get a list of posts for the fellow user   
 
-    userPost    = getPostOfUser(user)       # get a list of posts for the login user
+    userPost    = getPostOfUser(user)       # get a list of posts for the login user   
     userURLs    = [post[1] for post in userPost]
 
     recommendation = []

@@ -179,12 +179,12 @@ def main():
             # calculate user relationship graph
             # (URL, user) tuple
             post2user = users_row.map(lambda x: (x[10], x[0]))
-            #graph     = post2user.join(post2user)\                       # self join to find user relationship by posts
+            #graph     = post2user.join(post2user)\                       # self join to find user relationship by posts     
             #                     .filter(lambda x: x[1][0] != x[1][1])\  # remove all self linked relationship
             #                     .map(makeAscOrder)\                     # make to asc order by user name
             #                     .distinct()\        # remove duplicated user pairs, because the relationship is mutual
             #                     .map(lambda x: (x[1], 1))\              # ready tho count number of common edges
-            #                     .reduceByKey(lambda x, y: x+y)\         # count total number for every edge/relationship
+            #                     .reduceByKey(lambda x, y: x+y)\         # count total number for every edge/relationship    
             #                     .map(lambda x: (x[0][0], x[1], x[0][1]))# flatten and ready to write table
             graph     = post2user.join(post2user)\
                                  .filter(lambda x: x[1][0] != x[1][1])\

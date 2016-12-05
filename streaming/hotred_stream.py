@@ -106,7 +106,7 @@ def readUserPostsFromDB(user): # requires quite some DB access
                 if (userSubGrp == None):
                     continue
                 if user in userSubGrp:
-                    continue # only add fellow users who are not commented the post before
+                    continue # only add fellow users who are not commented the post before    
                 fellowUsers.append(userSubGrp)
 
             for userGrp in fellowUsers:
@@ -151,7 +151,7 @@ def readUserPostsRealDB(user): # requires quite some realtime DB access
                 if userSubGrp == None:
                     continue
                 if user in userSubGrp:
-                    continue # only add fellow users who are not commented the post before
+                    continue # only add fellow users who are not commented the post before   
                 fellowUsers.append(userSubGrp)
 
             for userGrp in fellowUsers:
@@ -332,7 +332,7 @@ post2user.cache()
 #post2user.foreachRDD(lambda rdd: rdd.foreachPartition(insert_realtime_post_user))
 
 #post2user.pprint()
-# realtime has 3 new edge sources
+# realtime has 3 new edge sources   
 # 1. relationship between new posts that is in this micro-batch
 newEdgesByNewPosts = post2user.join(post2user)\
                               .filter(lambda x: x[1][0] != x[1][1])\
@@ -356,7 +356,7 @@ if PRE_LOAD_GRAPH:
 
 #newEdgesByBatchPosts.pprint()
 
-# 3. new posts that has relationship with realtime layer earlier posts
+# 3. new posts that has relationship with realtime layer earlier posts   
 if PRE_LOAD_GRAPH:
     if USE_CHPT:
         def updateRealTimeGraph(newValues, runningCount):

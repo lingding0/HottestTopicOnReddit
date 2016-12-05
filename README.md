@@ -41,7 +41,7 @@ JSON message fields:
 - id:           id of the comment
 - subreddit_id: sub-reddit ID
 
-~ 30 GB of historical data
+~ 30 GB of historical data 
 ~ 2.8 Million distinct users on Dec. 2016
 ~ 1300 messages streaming per second
 
@@ -70,7 +70,7 @@ Four stream processes were performed for real-time views:
 1. Find a list of posts that a new user commented on, in batch layer and real time layer
 2. For all the posts found in step 1, find all users that commented on them, in batch layer and real time layer
 3. Add new edges that between new user and the users found in step 2
-4. Aggregate the edges into graph table in redis as real time layer user graph
+4. Aggregate the edges into graph table in redis as real time layer user graph 
 
 Messages streamed into Spark Streaming with the spark-kafka connector
 Real-time views were written into redis caching layer for fast edge update

@@ -14,7 +14,7 @@ s3_connection = boto.connect_s3(os.environ['AWS_ACCESS_KEY_ID'],
 bucket = s3_connection.get_bucket('reddit-comments')  # bucket names must be unique
 bucket.list()
 #bucket = s3_connection.create_bucket('lding-reddit-comments1')  # bucket names must be unique
-#bucket = s3_connection.get_bucket('lding-reddit-comments')
+#bucket = s3_connection.get_bucket('lding-reddit-comments')  
 key = boto.s3.key.Key(bucket, 'myfile')
 with open(file2S3) as f:
     key.send_file(f)
